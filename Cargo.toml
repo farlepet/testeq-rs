@@ -1,0 +1,10 @@
+[package]
+name = "testeq-rs"
+description = "Provides support for various types of connected test equipment"
+version = "0.1.0"
+license = "MIT"
+edition = "2021"
+
+[dependencies]
+async-trait = "0.1.89"
+tokio = { version = "1.47.1", features = [ "net", "io-util", "sync", "macros", "rt-multi-thread" ] }
