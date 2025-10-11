@@ -3,9 +3,9 @@ use std::sync::Arc;
 use tokio::sync::Mutex;
 
 use crate::{
+    data::Reading,
     equipment::multimeter::{
         MultimeterChannel, MultimeterDetails, MultimeterEquipment, MultimeterMode,
-        MultimeterReading,
     },
     error::{Error, Result},
     model::ModelInfo,
@@ -90,6 +90,15 @@ impl SiglentMultimeterChannel {
 }
 #[async_trait::async_trait]
 impl MultimeterChannel for SiglentMultimeterChannel {
+    fn name(&self) -> Result<String> {
+        if self.idx == 0 {
+            Ok("Main".to_string())
+        } else {
+            /* Scanner card channel */
+            Ok(format!("CH{}", self.idx))
+        }
+    }
+
     async fn set_mode(&mut self, mode: MultimeterMode, range: Option<u8>) -> Result<()> {
         match mode {
             MultimeterMode::DcVoltage => {
@@ -167,7 +176,6 @@ impl MultimeterChannel for SiglentMultimeterChannel {
 
     async fn get_mode(&self) -> Result<MultimeterMode> {
         let resp = self.query_str("CONF?").await?;
-        println!("resp: {}", resp);
         let resp_vec: Vec<_> = resp.split(' ').collect();
 
         let Some(mode) = resp_vec.first() else {
@@ -196,7 +204,7 @@ impl MultimeterChannel for SiglentMultimeterChannel {
         Ok(mode)
     }
 
-    async fn get_reading(&self) -> Result<MultimeterReading> {
+    async fn get_reading(&self) -> Result<Reading> {
         let mode = self.get_mode_or_cache().await?;
 
         let resp = self.query_str("READ?").await?;
@@ -206,9 +214,17 @@ impl MultimeterChannel for SiglentMultimeterChannel {
             return Err(Error::BadResponse(format!("Malformed response: {}", resp)));
         };
 
-        let reading: f64 = reading.parse().map_err(|e| {
+        let mut reading: f64 = reading.parse().map_err(|e| {
             Error::BadResponse(format!("Could not parse {} as f64: {}", reading, e))
         })?;
-        Ok(MultimeterReading::from_val_and_mode(reading, mode))
+        if reading > 1e37 {
+            /* Overload */
+            reading = f64::NAN;
+        }
+
+        Ok(Reading {
+            unit: mode.into(),
+            value: reading,
+        })
     }
 }

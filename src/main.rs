@@ -1,11 +1,18 @@
+#![allow(unused_imports)]
+
+use std::time::Duration;
+
+use strum::IntoEnumIterator;
 use testeq_rs::{
     equipment::{
         drivers::{multimeter_siglent::SiglentMultimeter, psu_rigol::RigolPsu},
         multimeter::{MultimeterEquipment, MultimeterMode},
         psu::PowerSupplyEquipment,
     },
+    error::Result,
     protocol::{Protocol, ScpiTcpProtocol},
 };
+use tokio::time::sleep;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -43,16 +50,48 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("CH0 current: {}", chan0.get_current().await?);*/
 
     let mut dmm = SiglentMultimeter::new(Box::new(scpi))?;
-    let dmm: &mut dyn MultimeterEquipment = &mut dmm;
+    test_dmm(&mut dmm).await?;
 
-    let mut chan = dmm.get_channel(0).await?;
+    Ok(())
+}
 
-    println!("Mode: {:?}", chan.get_mode().await?);
-    chan.set_mode(MultimeterMode::Temperature, None).await?;
-    println!("Mode: {:?}", chan.get_mode().await?);
+async fn test_dmm(dmm: &mut dyn MultimeterEquipment) -> Result<()> {
+    let mut chans = dmm.get_channels().await?;
+    for chan in &mut chans {
+        println!("Testing channel {}", chan.name()?);
+        for mode in MultimeterMode::iter() {
+            /* TODO: Iterate ranges as well */
+            if let Err(e) = chan.set_mode(mode, None).await {
+                println!("Could not set mode {:?}: {}", mode, e);
+                continue;
+            }
 
-    for _ in 0..4 {
-        println!("Reading: {}", chan.get_reading().await?);
+            sleep(Duration::from_millis(50)).await;
+
+            match chan.get_mode().await {
+                Err(e) => {
+                    println!("Could not get mode: {}", e);
+                    continue;
+                }
+                Ok(rmode) => {
+                    if rmode != mode {
+                        println!(
+                            "Reported mode does not match set: {:?} != {:?}",
+                            rmode, mode
+                        );
+                        continue;
+                    }
+                }
+            }
+
+            match chan.get_reading().await {
+                Err(e) => {
+                    println!("Could not get reading in mode {:?}: {}", mode, e);
+                    continue;
+                }
+                Ok(val) => println!("{:?} reading: {}", mode, val),
+            }
+        }
     }
 
     Ok(())

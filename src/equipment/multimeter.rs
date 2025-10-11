@@ -1,8 +1,10 @@
-use std::fmt::Display;
-
 use async_trait::async_trait;
+use strum_macros::EnumIter;
 
-use crate::error::{Error, Result};
+use crate::{
+    data::{Reading, Unit},
+    error::{Error, Result},
+};
 
 #[derive(Clone, Debug)]
 pub struct MultimeterDetails {}
@@ -16,97 +18,7 @@ pub trait MultimeterEquipment {
     async fn get_channels(&mut self) -> Result<Vec<Box<dyn MultimeterChannel>>>;
 }
 
-/* TODO: Move elsewhere */
-fn get_prefix_and_scale(val: f64) -> (&'static str, f64) {
-    let aval = val.abs();
-    if aval < 1e-12 {
-        ("f", val / 1e-15)
-    } else if aval < 1e-9 {
-        ("p", val / 1e-12)
-    } else if aval < 1e-6 {
-        ("n", val / 1e-9)
-    } else if aval < 1e-3 {
-        ("u", val / 1e-6)
-    } else if aval < 1e0 {
-        ("m", val / 1e-3)
-    } else if aval < 1e3 {
-        ("", val)
-    } else if aval < 1e6 {
-        ("k", val / 1e3)
-    } else if aval < 1e9 {
-        ("M", val / 1e6)
-    } else if aval < 1e12 {
-        ("G", val / 1e9)
-    } else {
-        ("T", val / 1e12)
-    }
-}
-
-#[derive(Clone, Copy, Debug)]
-pub enum MultimeterReading {
-    Voltage(f64),
-    Current(f64),
-    Resistance(f64),
-    Temperature(f64),
-    Frequency(f64),
-    Period(f64),
-    Capacitance(f64),
-    Inductance(f64),
-}
-impl MultimeterReading {
-    pub fn from_val_and_mode(value: f64, mode: MultimeterMode) -> Self {
-        match mode {
-            MultimeterMode::DcVoltage | MultimeterMode::AcVoltage | MultimeterMode::Diode => {
-                Self::Voltage(value)
-            }
-            MultimeterMode::DcCurrent | MultimeterMode::AcCurrent => Self::Current(value),
-            MultimeterMode::Resistance
-            | MultimeterMode::Resistance4W
-            | MultimeterMode::Continuity => Self::Resistance(value),
-            MultimeterMode::Temperature => Self::Temperature(value),
-            MultimeterMode::Frequency => Self::Frequency(value),
-            MultimeterMode::Period => Self::Period(value),
-            MultimeterMode::Capacitance => Self::Capacitance(value),
-            MultimeterMode::Inductance => Self::Inductance(value),
-        }
-    }
-
-    pub fn unit(&self) -> &str {
-        match self {
-            Self::Voltage(_) => "V",
-            Self::Current(_) => "A",
-            Self::Resistance(_) => "Ohms",
-            Self::Temperature(_) => "degC",
-            Self::Frequency(_) => "Hz",
-            Self::Period(_) => "s",
-            Self::Capacitance(_) => "F",
-            Self::Inductance(_) => "H",
-        }
-    }
-
-    pub fn value(&self) -> f64 {
-        match self {
-            Self::Voltage(value)
-            | Self::Current(value)
-            | Self::Resistance(value)
-            | Self::Temperature(value)
-            | Self::Frequency(value)
-            | Self::Period(value)
-            | Self::Capacitance(value)
-            | Self::Inductance(value) => *value,
-        }
-    }
-}
-impl Display for MultimeterReading {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let unit = self.unit();
-        let (prefix, value) = get_prefix_and_scale(self.value());
-
-        write!(f, "{} {}{}", value, prefix, unit)
-    }
-}
-
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, EnumIter)]
 pub enum MultimeterMode {
     DcVoltage,
     AcVoltage,
@@ -122,6 +34,24 @@ pub enum MultimeterMode {
     Capacitance,
     Inductance,
 }
+impl From<MultimeterMode> for Unit {
+    fn from(value: MultimeterMode) -> Self {
+        match value {
+            MultimeterMode::DcVoltage | MultimeterMode::AcVoltage | MultimeterMode::Diode => {
+                Self::Voltage
+            }
+            MultimeterMode::DcCurrent | MultimeterMode::AcCurrent => Self::Current,
+            MultimeterMode::Resistance
+            | MultimeterMode::Resistance4W
+            | MultimeterMode::Continuity => Self::Resistance,
+            MultimeterMode::Temperature => Self::Temperature,
+            MultimeterMode::Frequency => Self::Frequency,
+            MultimeterMode::Period => Self::Period,
+            MultimeterMode::Capacitance => Self::Capacitance,
+            MultimeterMode::Inductance => Self::Inductance,
+        }
+    }
+}
 
 #[derive(Clone, Debug)]
 pub struct MultimeterRange {
@@ -136,7 +66,9 @@ pub struct MultimeterRange {
 /* Don't warn about unused arguments for default implementations */
 #[allow(unused_variables)]
 pub trait MultimeterChannel: Send + Sync {
-    async fn get_reading(&self) -> Result<MultimeterReading> {
+    fn name(&self) -> Result<String>;
+
+    async fn get_reading(&self) -> Result<Reading> {
         Err(Error::Unimplemented("Not implemented".into()))
     }
 

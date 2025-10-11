@@ -7,4 +7,6 @@ edition = "2021"
 
 [dependencies]
 async-trait = "0.1.89"
-tokio = { version = "1.47.1", features = [ "net", "io-util", "sync", "macros", "rt-multi-thread" ] }
+strum = "0.27.2"
+strum_macros = "0.27.2"
+tokio = { version = "1.47.1", features = [ "net", "io-util", "sync", "macros", "rt-multi-thread", "time" ] }
