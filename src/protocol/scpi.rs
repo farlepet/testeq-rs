@@ -1,3 +1,5 @@
+use std::time::Duration;
+
 use async_trait::async_trait;
 
 use crate::{error::Result, model::ModelInfo};
@@ -11,6 +13,10 @@ pub trait ScpiProtocol: Protocol + Send + Sync {
     async fn int_recv(&mut self) -> Result<Vec<u8>>;
 
     async fn int_query(&mut self, data: &[u8]) -> Result<Vec<u8>>;
+
+    async fn recv_raw(&mut self, length: Option<usize>, timeout: Option<Duration>) -> Result<Vec<u8>>;
+
+    async fn recv_until(&mut self, byte: u8, timeout: Duration) -> Result<Vec<u8>>;
 }
 impl dyn ScpiProtocol {
     pub async fn send(&mut self, data: impl AsRef<[u8]>) -> Result<()> {

@@ -5,9 +5,7 @@ use std::time::Duration;
 use strum::IntoEnumIterator;
 use testeq_rs::{
     equipment::{
-        drivers::{multimeter_siglent::SiglentMultimeter, psu_rigol::RigolPsu},
-        multimeter::{MultimeterEquipment, MultimeterMode},
-        psu::PowerSupplyEquipment,
+        drivers::{multimeter_siglent::SiglentMultimeter, oscilloscope_siglent::SiglentOscilloscope, psu_rigol::RigolPsu}, multimeter::{MultimeterEquipment, MultimeterMode}, oscilloscope::OscilloscopeEquipment, psu::PowerSupplyEquipment
     },
     error::Result,
     protocol::{Protocol, ScpiTcpProtocol},
@@ -17,15 +15,20 @@ use tokio::time::sleep;
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     //let mut scpi = ScpiTcpProtocol::new("10.0.60.56:5025".parse()?).unwrap();
-    let mut scpi = ScpiTcpProtocol::new("10.0.0.105:5555".parse()?).unwrap();
+    let mut scpi = ScpiTcpProtocol::new("10.0.60.55:5025".parse()?).unwrap();
+    //let mut scpi = ScpiTcpProtocol::new("10.0.0.105:5555".parse()?).unwrap();
     scpi.connect().await?;
 
-    let mut psu = RigolPsu::new(Box::new(scpi))?;
+    /*let mut psu = RigolPsu::new(Box::new(scpi))?;
     psu.connect().await?;
-    test_psu(&mut psu).await?;
+    test_psu(&mut psu).await?;*/
 
     /*let mut dmm = SiglentMultimeter::new(Box::new(scpi))?;
     test_dmm(&mut dmm).await?;*/
+
+    let mut scope = SiglentOscilloscope::new(Box::new(scpi))?;
+    scope.connect().await?;
+    test_scope(&mut scope).await?;
 
     Ok(())
 }
@@ -33,7 +36,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 async fn test_psu(psu: &mut dyn PowerSupplyEquipment) -> Result<()> {
     let mut chans = psu.get_channels().await?;
     for chan_mutex in &mut chans {
-        let mut chan = chan_mutex.lock().await;
+        let chan = chan_mutex.lock().await;
 
         println!("Testing channel {}", chan.name()?);
 
@@ -88,6 +91,22 @@ async fn test_dmm(dmm: &mut dyn MultimeterEquipment) -> Result<()> {
                 }
                 Ok(val) => println!("{:?} reading: {}", mode, val),
             }
+        }
+    }
+
+    Ok(())
+}
+
+async fn test_scope(scope: &mut dyn OscilloscopeEquipment) -> Result<()> {
+    let mut chans = scope.get_channels().await?;
+    for chan_mutex in &mut chans {
+        let chan = chan_mutex.lock().await;
+
+        //println!("Testing channel {}", chan.name()?);
+        let waveform = chan.read_waveform().await?;
+
+        for pt in waveform.readings.values {
+            println!("{}", pt);
         }
     }
 

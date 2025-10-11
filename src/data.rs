@@ -64,6 +64,7 @@ impl Unit {
     }
 }
 
+#[derive(Clone, Debug)]
 pub struct Reading {
     pub unit: Unit,
     pub value: f64,
@@ -80,6 +81,7 @@ impl Display for Reading {
     }
 }
 
+#[derive(Clone, Debug)]
 pub struct Readings {
     pub unit: Unit,
     pub values: Vec<f64>,
