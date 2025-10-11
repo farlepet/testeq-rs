@@ -9,11 +9,13 @@ use crate::{
     error::{Error, Result},
 };
 
+use super::BaseEquipment;
+
 #[derive(Clone, Debug)]
 pub struct MultimeterDetails {}
 
 #[async_trait]
-pub trait MultimeterEquipment {
+pub trait MultimeterEquipment: BaseEquipment {
     async fn get_details(&mut self) -> Result<MultimeterDetails>;
 
     async fn get_channel(&mut self, idx: u8) -> Result<Arc<Mutex<dyn MultimeterChannel>>>;

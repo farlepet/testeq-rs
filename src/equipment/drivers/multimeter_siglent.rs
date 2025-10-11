@@ -4,8 +4,9 @@ use tokio::sync::{Mutex, RwLock};
 
 use crate::{
     data::Reading,
-    equipment::multimeter::{
-        MultimeterChannel, MultimeterDetails, MultimeterEquipment, MultimeterMode,
+    equipment::{
+        multimeter::{MultimeterChannel, MultimeterDetails, MultimeterEquipment, MultimeterMode},
+        BaseEquipment,
     },
     error::{Error, Result},
     model::ModelInfo,
@@ -30,6 +31,13 @@ impl SiglentMultimeter {
             proto: proto_arc,
             model: None,
         })
+    }
+}
+#[async_trait::async_trait]
+impl BaseEquipment for SiglentMultimeter {
+    async fn connect(&mut self) -> Result<()> {
+        /* TODO */
+        Ok(())
     }
 }
 #[async_trait::async_trait]

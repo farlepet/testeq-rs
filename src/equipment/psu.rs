@@ -5,6 +5,8 @@ use tokio::sync::Mutex;
 
 use crate::error::{Error, Result};
 
+use super::BaseEquipment;
+
 #[derive(Clone, Debug)]
 pub struct PowerSupplyChannelDetails {
     /* TODO: Should we use an integer with millivolts instead? */
@@ -14,7 +16,7 @@ pub struct PowerSupplyChannelDetails {
 }
 
 #[async_trait]
-pub trait PowerSupplyEquipment {
+pub trait PowerSupplyEquipment: BaseEquipment {
     async fn get_channel(&mut self, idx: u8) -> Result<Arc<Mutex<dyn PowerSupplyChannel>>>;
 
     async fn get_channels(&mut self) -> Result<Vec<Arc<Mutex<dyn PowerSupplyChannel>>>>;

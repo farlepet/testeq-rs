@@ -3,7 +3,12 @@ use std::sync::Arc;
 use async_trait::async_trait;
 use tokio::sync::Mutex;
 
-use crate::{data::Readings, error::{Error, Result}};
+use crate::{
+    data::Readings,
+    error::{Error, Result},
+};
+
+use super::BaseEquipment;
 
 #[derive(Clone, Debug)]
 pub struct AnalogWaveform {
@@ -29,16 +34,21 @@ pub struct OscilloscopeCapture {
 }
 
 #[async_trait]
-pub trait OscilloscopeEquipment {
+pub trait OscilloscopeEquipment: BaseEquipment {
     async fn get_channel(&mut self, idx: u8) -> Result<Arc<Mutex<dyn OscilloscopeChannel>>>;
 
     async fn get_channels(&mut self) -> Result<Vec<Arc<Mutex<dyn OscilloscopeChannel>>>>;
 
-    async fn get_digital_channel(&mut self, idx: u8) -> Result<Arc<Mutex<dyn OscilloscopeDigitalChannel>>> {
+    async fn get_digital_channel(
+        &mut self,
+        idx: u8,
+    ) -> Result<Arc<Mutex<dyn OscilloscopeDigitalChannel>>> {
         Err(Error::Unimplemented("Not implemented".into()))
     }
 
-    async fn get_digital_channels(&mut self) -> Result<Vec<Arc<Mutex<dyn OscilloscopeDigitalChannel>>>> {
+    async fn get_digital_channels(
+        &mut self,
+    ) -> Result<Vec<Arc<Mutex<dyn OscilloscopeDigitalChannel>>>> {
         Ok(vec![])
     }
 

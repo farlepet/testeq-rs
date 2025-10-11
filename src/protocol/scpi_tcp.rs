@@ -3,7 +3,8 @@ use std::{net::SocketAddr, time::Duration};
 use async_trait::async_trait;
 use tokio::{
     io::{AsyncBufReadExt, AsyncReadExt, AsyncWriteExt, BufReader},
-    net::{TcpSocket, TcpStream}, time::Instant,
+    net::{TcpSocket, TcpStream},
+    time::Instant,
 };
 
 use crate::{
@@ -88,7 +89,11 @@ impl ScpiProtocol for ScpiTcpProtocol {
         self.int_recv().await
     }
 
-    async fn recv_raw(&mut self, length: Option<usize>, timeout: Option<Duration>) -> Result<Vec<u8>> {
+    async fn recv_raw(
+        &mut self,
+        length: Option<usize>,
+        timeout: Option<Duration>,
+    ) -> Result<Vec<u8>> {
         let Some(stream) = &mut self.stream else {
             return Err(Error::Unspecified("Not connected".into()));
         };
@@ -97,8 +102,15 @@ impl ScpiProtocol for ScpiTcpProtocol {
             let mut resp = vec![0; length];
 
             if let Some(timeout) = timeout {
-                if tokio::time::timeout(timeout, stream.read_exact(&mut resp)).await.is_err() {
-                    return Err(Error::Timeout(format!("Timed out reading {} bytes for {} ms", length, timeout.as_millis())));
+                if tokio::time::timeout(timeout, stream.read_exact(&mut resp))
+                    .await
+                    .is_err()
+                {
+                    return Err(Error::Timeout(format!(
+                        "Timed out reading {} bytes for {} ms",
+                        length,
+                        timeout.as_millis()
+                    )));
                 }
             } else {
                 stream.read_exact(&mut resp).await?;
@@ -121,12 +133,22 @@ impl ScpiProtocol for ScpiTcpProtocol {
         loop {
             let now = Instant::now();
             if now >= end {
-                return Err(Error::Timeout(format!("Timed out waiting for {} for {} ms", byte, timeout.as_millis())));
+                return Err(Error::Timeout(format!(
+                    "Timed out waiting for {} for {} ms",
+                    byte,
+                    timeout.as_millis()
+                )));
             }
             let remaining = end - now;
 
             match tokio::time::timeout(remaining, stream.read_u8()).await {
-                Err(_) => return Err(Error::Timeout(format!("Timed out waiting for {} for {} ms", byte, timeout.as_millis()))),
+                Err(_) => {
+                    return Err(Error::Timeout(format!(
+                        "Timed out waiting for {} for {} ms",
+                        byte,
+                        timeout.as_millis()
+                    )))
+                }
                 Ok(res) => {
                     let res = res?;
                     data.push(res);

@@ -3,9 +3,18 @@ use std::{sync::Arc, time::Duration};
 use tokio::sync::Mutex;
 
 use crate::{
-    data::{Readings, Unit}, equipment::oscilloscope::{AnalogWaveform, OscilloscopeCapture, OscilloscopeChannel, OscilloscopeDigitalChannel, OscilloscopeEquipment}, error::{Error, Result}, model::ModelInfo, protocol::ScpiProtocol
+    data::{Readings, Unit},
+    equipment::{
+        oscilloscope::{
+            AnalogWaveform, OscilloscopeCapture, OscilloscopeChannel, OscilloscopeDigitalChannel,
+            OscilloscopeEquipment,
+        },
+        BaseEquipment,
+    },
+    error::{Error, Result},
+    model::ModelInfo,
+    protocol::ScpiProtocol,
 };
-
 
 pub struct SiglentOscilloscope {
     proto: Arc<Mutex<Box<dyn ScpiProtocol>>>,
@@ -24,8 +33,10 @@ impl SiglentOscilloscope {
             model: None,
         })
     }
-
-    pub async fn connect(&mut self) -> Result<()> {
+}
+#[async_trait::async_trait]
+impl BaseEquipment for SiglentOscilloscope {
+    async fn connect(&mut self) -> Result<()> {
         if !self.analog_channels.is_empty() {
             return Err(Error::Unspecified("Already connected".into()));
         }
@@ -33,10 +44,26 @@ impl SiglentOscilloscope {
         let model = self.proto.lock().await.model().await?;
         self.model = Some(model);
         /* TODO: Check model */
-        self.analog_channels.push(Arc::new(Mutex::new(SiglentOscilloscopeChannel::new(self.proto.clone(), 0))));
-        self.analog_channels.push(Arc::new(Mutex::new(SiglentOscilloscopeChannel::new(self.proto.clone(), 1))));
-        self.analog_channels.push(Arc::new(Mutex::new(SiglentOscilloscopeChannel::new(self.proto.clone(), 2))));
-        self.analog_channels.push(Arc::new(Mutex::new(SiglentOscilloscopeChannel::new(self.proto.clone(), 3))));
+        self.analog_channels
+            .push(Arc::new(Mutex::new(SiglentOscilloscopeChannel::new(
+                self.proto.clone(),
+                0,
+            ))));
+        self.analog_channels
+            .push(Arc::new(Mutex::new(SiglentOscilloscopeChannel::new(
+                self.proto.clone(),
+                1,
+            ))));
+        self.analog_channels
+            .push(Arc::new(Mutex::new(SiglentOscilloscopeChannel::new(
+                self.proto.clone(),
+                2,
+            ))));
+        self.analog_channels
+            .push(Arc::new(Mutex::new(SiglentOscilloscopeChannel::new(
+                self.proto.clone(),
+                3,
+            ))));
         Ok(())
     }
 }
@@ -58,14 +85,19 @@ impl OscilloscopeEquipment for SiglentOscilloscope {
             .collect())
     }
 
-    async fn get_digital_channel(&mut self, idx: u8) -> Result<Arc<Mutex<dyn OscilloscopeDigitalChannel>>> {
+    async fn get_digital_channel(
+        &mut self,
+        idx: u8,
+    ) -> Result<Arc<Mutex<dyn OscilloscopeDigitalChannel>>> {
         match self.digital_channels.get(idx as usize) {
             None => Err(Error::Unspecified("Index out of range".into())),
             Some(chan) => Ok(chan.clone()),
         }
     }
 
-    async fn get_digital_channels(&mut self) -> Result<Vec<Arc<Mutex<dyn OscilloscopeDigitalChannel>>>> {
+    async fn get_digital_channels(
+        &mut self,
+    ) -> Result<Vec<Arc<Mutex<dyn OscilloscopeDigitalChannel>>>> {
         Ok(self
             .digital_channels
             .clone()
@@ -88,10 +120,7 @@ struct SiglentOscilloscopeChannel {
 }
 impl SiglentOscilloscopeChannel {
     fn new(proto: Arc<Mutex<Box<dyn ScpiProtocol>>>, idx: u8) -> Self {
-        Self {
-            proto,
-            idx,
-        }
+        Self { proto, idx }
     }
 
     async fn send(&self, cmd: impl AsRef<[u8]>) -> Result<()> {
@@ -110,8 +139,15 @@ impl SiglentOscilloscopeChannel {
 
     async fn read_header(&self, proto: &mut dyn ScpiProtocol) -> Result<String> {
         proto.recv_until(b'#', Duration::from_secs(3)).await?;
-        let length = proto.recv_raw(Some(1), Some(Duration::from_secs(1))).await?;
-        let value = proto.recv_raw(Some((length[0] - b'0').into()), Some(Duration::from_secs(1))).await?;
+        let length = proto
+            .recv_raw(Some(1), Some(Duration::from_secs(1)))
+            .await?;
+        let value = proto
+            .recv_raw(
+                Some((length[0] - b'0').into()),
+                Some(Duration::from_secs(1)),
+            )
+            .await?;
         Ok(String::from_utf8_lossy(&value).to_string())
     }
 
@@ -120,7 +156,9 @@ impl SiglentOscilloscopeChannel {
 
         proto.send(":WAV:PRE?").await?;
         let pre = self.read_header(proto.as_mut()).await?;
-        let desc = proto.recv_raw(Some(346), Some(Duration::from_secs(1))).await?;
+        let desc = proto
+            .recv_raw(Some(346), Some(Duration::from_secs(1)))
+            .await?;
 
         Ok(WaveformPreable {
             header: pre,
@@ -128,7 +166,12 @@ impl SiglentOscilloscopeChannel {
         })
     }
 
-    async fn read_samples(&self, count: usize, wavedesc: &WaveDescData, dest: &mut Vec<f64>) -> Result<()> {
+    async fn read_samples(
+        &self,
+        count: usize,
+        wavedesc: &WaveDescData,
+        dest: &mut Vec<f64>,
+    ) -> Result<()> {
         let mut proto = self.proto.lock().await;
 
         let bytes = if wavedesc.comm_type == 0 {
@@ -138,17 +181,25 @@ impl SiglentOscilloscopeChannel {
         };
 
         self.read_header(proto.as_mut()).await?;
-        let raw = proto.recv_raw(Some(bytes), Some(Duration::from_secs(3))).await?;
+        let raw = proto
+            .recv_raw(Some(bytes), Some(Duration::from_secs(3)))
+            .await?;
 
-        let scale = (wavedesc.attenuation as f64 * wavedesc.vert_gain as f64) / wavedesc.code_per_div as f64;
+        let scale = (wavedesc.attenuation as f64 * wavedesc.vert_gain as f64)
+            / wavedesc.code_per_div as f64;
         let offset = wavedesc.vert_offset as f64;
 
         if wavedesc.comm_type == 0 {
-            let mut samples = raw.into_iter()
-                .map(|s| ((s as i8) as f64) * scale - offset).collect();
+            let mut samples = raw
+                .into_iter()
+                .map(|s| ((s as i8) as f64) * scale - offset)
+                .collect();
             dest.append(&mut samples);
         } else {
-            let mut samples = raw.chunks(2).map(|s| (i16::from_le_bytes(s.try_into().unwrap()) as f64) * scale - offset).collect();
+            let mut samples = raw
+                .chunks(2)
+                .map(|s| (i16::from_le_bytes(s.try_into().unwrap()) as f64) * scale - offset)
+                .collect();
             dest.append(&mut samples);
         }
 
@@ -181,20 +232,25 @@ impl OscilloscopeChannel for SiglentOscilloscopeChannel {
             readings: Readings {
                 unit: Unit::Voltage,
                 values: vec![],
-            }
+            },
         };
 
         let samples = pre.wavedesc.n_points as usize;
         let mut sample = 0;
 
         while sample < samples {
-            let mut samples_to_read= samples - sample;
+            let mut samples_to_read = samples - sample;
             if samples_to_read > 20000 {
                 samples_to_read = 20000;
             }
 
             self.send(":WAV:DATA?").await?;
-            self.read_samples(samples_to_read, &pre.wavedesc, &mut waveform.readings.values).await?;
+            self.read_samples(
+                samples_to_read,
+                &pre.wavedesc,
+                &mut waveform.readings.values,
+            )
+            .await?;
 
             sample += samples_to_read;
         }
@@ -209,10 +265,7 @@ struct SiglentOscilloscopeDigitalChannel {
 }
 impl SiglentOscilloscopeDigitalChannel {
     fn new(proto: Arc<Mutex<Box<dyn ScpiProtocol>>>, idx: u8) -> Self {
-        Self {
-            proto,
-            idx,
-        }
+        Self { proto, idx }
     }
 
     async fn send(&self, cmd: &str) -> Result<()> {
@@ -277,7 +330,10 @@ struct WaveDescData {
 impl WaveDescData {
     fn from_bytes(data: &[u8]) -> Result<Self> {
         if data.len() != std::mem::size_of::<Self>() {
-            Err(Error::Unspecified(format!("Attempt to populate WaveDescData from data of size {}!", data.len())))
+            Err(Error::Unspecified(format!(
+                "Attempt to populate WaveDescData from data of size {}!",
+                data.len()
+            )))
         } else {
             let ptr: *const [u8; std::mem::size_of::<Self>()] = data.as_ptr() as _;
             Ok(unsafe { std::mem::transmute(*ptr) })

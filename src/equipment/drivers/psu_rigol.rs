@@ -3,7 +3,10 @@ use std::sync::Arc;
 use tokio::sync::Mutex;
 
 use crate::{
-    equipment::psu::{PowerSupplyChannel, PowerSupplyChannelDetails, PowerSupplyEquipment},
+    equipment::{
+        psu::{PowerSupplyChannel, PowerSupplyChannelDetails, PowerSupplyEquipment},
+        BaseEquipment,
+    },
     error::{Error, Result},
     model::ModelInfo,
     protocol::ScpiProtocol,
@@ -21,17 +24,6 @@ impl RigolPsu {
             model: None,
             channels: vec![],
         })
-    }
-
-    pub async fn connect(&mut self) -> Result<()> {
-        if !self.channels.is_empty() {
-            return Err(Error::Unspecified("Already connected".into()));
-        }
-
-        self.model = Some(self.proto.lock().await.model().await?);
-        self.channels = Self::create_channels(self.model.as_ref().unwrap(), &self.proto);
-
-        Ok(())
     }
 
     fn create_channels(
@@ -74,6 +66,19 @@ impl RigolPsu {
             ],
             _ => vec![],
         }
+    }
+}
+#[async_trait::async_trait]
+impl BaseEquipment for RigolPsu {
+    async fn connect(&mut self) -> Result<()> {
+        if !self.channels.is_empty() {
+            return Err(Error::Unspecified("Already connected".into()));
+        }
+
+        self.model = Some(self.proto.lock().await.model().await?);
+        self.channels = Self::create_channels(self.model.as_ref().unwrap(), &self.proto);
+
+        Ok(())
     }
 }
 #[async_trait::async_trait]

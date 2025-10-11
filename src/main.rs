@@ -1,11 +1,19 @@
 #![allow(unused_imports)]
 
-use std::time::Duration;
+use std::{env, net::ToSocketAddrs, process::exit, time::Duration};
 
 use strum::IntoEnumIterator;
 use testeq_rs::{
     equipment::{
-        drivers::{multimeter_siglent::SiglentMultimeter, oscilloscope_siglent::SiglentOscilloscope, psu_rigol::RigolPsu}, multimeter::{MultimeterEquipment, MultimeterMode}, oscilloscope::OscilloscopeEquipment, psu::PowerSupplyEquipment
+        drivers::{
+            multimeter_siglent::SiglentMultimeter, oscilloscope_siglent::SiglentOscilloscope,
+            psu_rigol::RigolPsu,
+        },
+        equipment_from_scpi,
+        multimeter::{MultimeterEquipment, MultimeterMode},
+        oscilloscope::OscilloscopeEquipment,
+        psu::PowerSupplyEquipment,
+        Equipment,
     },
     error::Result,
     protocol::{Protocol, ScpiTcpProtocol},
@@ -14,26 +22,48 @@ use tokio::time::sleep;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    //let mut scpi = ScpiTcpProtocol::new("10.0.60.56:5025".parse()?).unwrap();
-    let mut scpi = ScpiTcpProtocol::new("10.0.60.55:5025".parse()?).unwrap();
-    //let mut scpi = ScpiTcpProtocol::new("10.0.0.105:5555".parse()?).unwrap();
-    scpi.connect().await?;
+    let args: Vec<String> = env::args().collect();
 
-    /*let mut psu = RigolPsu::new(Box::new(scpi))?;
-    psu.connect().await?;
-    test_psu(&mut psu).await?;*/
+    if args.len() != 3 {
+        println!("Usage: ... <protocol> <path>");
+        println!("  <protocol>:");
+        println!("    scpi_tcp: SCPI over raw TCP");
+        println!("  <path>");
+        println!("    Path to device, or network address (IP:PORT or HOSTNAME:PORT)");
+        exit(1);
+    }
 
-    /*let mut dmm = SiglentMultimeter::new(Box::new(scpi))?;
-    test_dmm(&mut dmm).await?;*/
+    let proto = &args[1];
+    let path = &args[2];
 
-    let mut scope = SiglentOscilloscope::new(Box::new(scpi))?;
-    scope.connect().await?;
-    test_scope(&mut scope).await?;
+    let equip = match proto.as_ref() {
+        "scpi_tcp" => {
+            let Some(socket) = path.to_socket_addrs()?.next() else {
+                println!("Could not resolve '{}'", path);
+                exit(1);
+            };
+            let mut scpi = ScpiTcpProtocol::new(socket)?;
+            scpi.connect().await?;
+            equipment_from_scpi(Box::new(scpi)).await?
+        }
+        _ => {
+            println!("Protocol '{}' not supported", proto);
+            exit(1);
+        }
+    };
+
+    match equip {
+        Equipment::PowerSupply(mut psu) => test_psu(psu.as_mut()).await?,
+        Equipment::Multimeter(mut dmm) => test_dmm(dmm.as_mut()).await?,
+        Equipment::Oscilloscope(mut scope) => test_scope(scope.as_mut()).await?,
+    }
 
     Ok(())
 }
 
 async fn test_psu(psu: &mut dyn PowerSupplyEquipment) -> Result<()> {
+    psu.connect().await?;
+
     let mut chans = psu.get_channels().await?;
     for chan_mutex in &mut chans {
         let chan = chan_mutex.lock().await;
@@ -54,6 +84,8 @@ async fn test_psu(psu: &mut dyn PowerSupplyEquipment) -> Result<()> {
 }
 
 async fn test_dmm(dmm: &mut dyn MultimeterEquipment) -> Result<()> {
+    dmm.connect().await?;
+
     let mut chans = dmm.get_channels().await?;
     for chan_mutex in &mut chans {
         let mut chan = chan_mutex.lock().await;
@@ -98,6 +130,8 @@ async fn test_dmm(dmm: &mut dyn MultimeterEquipment) -> Result<()> {
 }
 
 async fn test_scope(scope: &mut dyn OscilloscopeEquipment) -> Result<()> {
+    scope.connect().await?;
+
     let mut chans = scope.get_channels().await?;
     for chan_mutex in &mut chans {
         let chan = chan_mutex.lock().await;
