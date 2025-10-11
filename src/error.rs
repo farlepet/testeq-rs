@@ -6,7 +6,7 @@ pub type Result<T, E = Error> = result::Result<T, E>;
 pub enum Error {
     Unspecified(String),
     Unimplemented(String),
-    Unhandled(Box<dyn std::error::Error>),
+    Unhandled(Box<dyn std::error::Error + Send + Sync>),
     /// Device returned a response that we could not properly handle
     BadResponse(String),
     /// Device or driver does not support configuration/functionality

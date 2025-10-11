@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use tokio::sync::Mutex;
+use tokio::sync::{Mutex, RwLock};
 
 use crate::{
     data::Reading,
@@ -15,14 +15,20 @@ use crate::{
 pub struct SiglentMultimeter {
     proto: Arc<Mutex<Box<dyn ScpiProtocol>>>,
     model: Option<ModelInfo>,
-    n_channels: u8,
+    channels: Vec<Arc<Mutex<SiglentMultimeterChannel>>>,
 }
 impl SiglentMultimeter {
     pub fn new(proto: Box<dyn ScpiProtocol>) -> Result<Self> {
+        let proto_arc = Arc::new(Mutex::new(proto));
+
         Ok(Self {
-            proto: Arc::new(Mutex::new(proto)),
+            /* TODO: Support scanner cards */
+            channels: vec![Arc::new(Mutex::new(SiglentMultimeterChannel::new(
+                proto_arc.clone(),
+                0,
+            )))],
+            proto: proto_arc,
             model: None,
-            n_channels: 1,
         })
     }
 }
@@ -32,23 +38,20 @@ impl MultimeterEquipment for SiglentMultimeter {
         Ok(MultimeterDetails {})
     }
 
-    async fn get_channel(&mut self, idx: u8) -> Result<Box<dyn MultimeterChannel>> {
-        if idx >= self.n_channels {
-            return Err(Error::Unspecified("Index out of range".into()));
+    async fn get_channel(&mut self, idx: u8) -> Result<Arc<Mutex<dyn MultimeterChannel>>> {
+        match self.channels.get(idx as usize) {
+            None => Err(Error::Unspecified("Index out of range".into())),
+            Some(chan) => Ok(chan.clone()),
         }
-
-        Ok(Box::new(SiglentMultimeterChannel::new(
-            self.proto.clone(),
-            idx,
-        )))
     }
 
-    async fn get_channels(&mut self) -> Result<Vec<Box<dyn MultimeterChannel>>> {
-        let mut channels = vec![];
-        for i in 0..self.n_channels {
-            channels.push(self.get_channel(i).await?);
-        }
-        Ok(channels)
+    async fn get_channels(&mut self) -> Result<Vec<Arc<Mutex<dyn MultimeterChannel>>>> {
+        Ok(self
+            .channels
+            .clone()
+            .into_iter()
+            .map(|ch| ch as _)
+            .collect())
     }
 }
 
@@ -56,14 +59,14 @@ struct SiglentMultimeterChannel {
     proto: Arc<Mutex<Box<dyn ScpiProtocol>>>,
     idx: u8,
     /// Cached multimeter mode
-    mode: Option<MultimeterMode>,
+    mode: Arc<RwLock<Option<MultimeterMode>>>,
 }
 impl SiglentMultimeterChannel {
     fn new(proto: Arc<Mutex<Box<dyn ScpiProtocol>>>, idx: u8) -> Self {
         Self {
             proto,
             idx,
-            mode: None,
+            mode: Arc::new(RwLock::new(None)),
         }
     }
 
@@ -82,9 +85,13 @@ impl SiglentMultimeterChannel {
     }
 
     async fn get_mode_or_cache(&self) -> Result<MultimeterMode> {
-        match self.mode {
+        match *self.mode.read().await {
             Some(mode) => Ok(mode),
-            None => self.get_mode().await,
+            None => {
+                let mode = self.get_mode().await?;
+                *self.mode.write().await = Some(mode);
+                Ok(mode)
+            }
         }
     }
 }
@@ -153,7 +160,7 @@ impl MultimeterChannel for SiglentMultimeterChannel {
             }
         }
 
-        self.mode = Some(mode);
+        *self.mode.write().await = Some(mode);
 
         Ok(())
     }

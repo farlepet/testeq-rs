@@ -16,48 +16,45 @@ use tokio::time::sleep;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let mut scpi = ScpiTcpProtocol::new("10.0.60.56:5025".parse()?).unwrap();
-    scpi.connect().await?;
-    /*let scpi: &mut dyn ScpiProtocol = &mut scpi;
-
+    //let mut scpi = ScpiTcpProtocol::new("10.0.60.56:5025".parse()?).unwrap();
+    let mut scpi = ScpiTcpProtocol::new("10.0.0.105:5555".parse()?).unwrap();
     scpi.connect().await?;
 
-    let idn = scpi.identify().await?;
-    println!("Identity: {}", idn);
+    let mut psu = RigolPsu::new(Box::new(scpi))?;
+    psu.connect().await?;
+    test_psu(&mut psu).await?;
 
-    let model = scpi.model().await?;
-    println!("Model: {:?}", model);*/
+    /*let mut dmm = SiglentMultimeter::new(Box::new(scpi))?;
+    test_dmm(&mut dmm).await?;*/
 
-    /*let mut psu = RigolPsu::new(Box::new(scpi))?;
-    let psu: &mut dyn PowerSupplyEquipment = &mut psu;
+    Ok(())
+}
 
-    let info = psu.get_details().await?;
-    println!("PSU details: {:?}", info);
+async fn test_psu(psu: &mut dyn PowerSupplyEquipment) -> Result<()> {
+    let mut chans = psu.get_channels().await?;
+    for chan_mutex in &mut chans {
+        let mut chan = chan_mutex.lock().await;
 
-    let mut chan0 = psu.get_channel(0).await?;
+        println!("Testing channel {}", chan.name()?);
 
-    println!("CH0 state: {}", chan0.get_enabled().await?);
-    chan0.set_enabled(false).await?;
-    println!("CH0 state: {}", chan0.get_enabled().await?);
+        println!("  details: {:?}", chan.details()?);
 
-    println!("CH0 voltage: {}", chan0.get_voltage().await?);
-    println!("CH0 current: {}", chan0.get_current().await?);
-
-    chan0.set_voltage(2.34567).await?;
-    chan0.set_current(1.23456).await?;
-
-    println!("CH0 voltage: {}", chan0.get_voltage().await?);
-    println!("CH0 current: {}", chan0.get_current().await?);*/
-
-    let mut dmm = SiglentMultimeter::new(Box::new(scpi))?;
-    test_dmm(&mut dmm).await?;
+        println!("  state: {}", chan.get_enabled().await?);
+        println!("  set voltage:  {} V", chan.get_voltage().await?);
+        println!("  set current:  {} A", chan.get_current().await?);
+        println!("  read voltage: {} V", chan.read_voltage().await?);
+        println!("  read current: {} A", chan.read_current().await?);
+        println!("  read power:   {} W", chan.read_power().await?);
+    }
 
     Ok(())
 }
 
 async fn test_dmm(dmm: &mut dyn MultimeterEquipment) -> Result<()> {
     let mut chans = dmm.get_channels().await?;
-    for chan in &mut chans {
+    for chan_mutex in &mut chans {
+        let mut chan = chan_mutex.lock().await;
+
         println!("Testing channel {}", chan.name()?);
         for mode in MultimeterMode::iter() {
             /* TODO: Iterate ranges as well */

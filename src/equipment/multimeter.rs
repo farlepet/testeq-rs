@@ -1,5 +1,8 @@
+use std::sync::Arc;
+
 use async_trait::async_trait;
 use strum_macros::EnumIter;
+use tokio::sync::Mutex;
 
 use crate::{
     data::{Reading, Unit},
@@ -13,9 +16,9 @@ pub struct MultimeterDetails {}
 pub trait MultimeterEquipment {
     async fn get_details(&mut self) -> Result<MultimeterDetails>;
 
-    async fn get_channel(&mut self, idx: u8) -> Result<Box<dyn MultimeterChannel>>;
+    async fn get_channel(&mut self, idx: u8) -> Result<Arc<Mutex<dyn MultimeterChannel>>>;
 
-    async fn get_channels(&mut self) -> Result<Vec<Box<dyn MultimeterChannel>>>;
+    async fn get_channels(&mut self) -> Result<Vec<Arc<Mutex<dyn MultimeterChannel>>>>;
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, EnumIter)]
