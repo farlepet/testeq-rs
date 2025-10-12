@@ -6,13 +6,14 @@ use crate::{
     data::{Readings, Unit},
     equipment::{
         oscilloscope::{
+            scope_trig::{self, TriggerMode},
             AnalogWaveform, OscilloscopeCapture, OscilloscopeChannel, OscilloscopeDigitalChannel,
             OscilloscopeEquipment,
         },
         BaseEquipment,
     },
     error::{Error, Result},
-    model::ModelInfo,
+    model::{Manufacturer, ModelInfo, SiglentFamily},
     protocol::ScpiProtocol,
 };
 
@@ -33,6 +34,30 @@ impl SiglentOscilloscope {
             model: None,
         })
     }
+
+    async fn send(&self, cmd: impl AsRef<[u8]>) -> Result<()> {
+        self.proto.lock().await.send(cmd).await
+    }
+
+    async fn query_str(&self, cmd: impl AsRef<[u8]>) -> Result<String> {
+        let resp = self.proto.lock().await.query(cmd).await?;
+        let resp = String::from_utf8_lossy(&resp);
+        Ok(resp
+            .trim()
+            .trim_start_matches('"')
+            .trim_end_matches('"')
+            .to_string())
+    }
+
+    async fn get_enabled_channels(&self) -> Result<u8> {
+        let mut count = 0;
+        for chan in &self.analog_channels {
+            if chan.lock().await.get_enabled().await? {
+                count += 1;
+            }
+        }
+        Ok(count)
+    }
 }
 #[async_trait::async_trait]
 impl BaseEquipment for SiglentOscilloscope {
@@ -43,27 +68,15 @@ impl BaseEquipment for SiglentOscilloscope {
 
         let model = self.proto.lock().await.model().await?;
         self.model = Some(model);
+
         /* TODO: Check model */
-        self.analog_channels
-            .push(Arc::new(Mutex::new(SiglentOscilloscopeChannel::new(
-                self.proto.clone(),
-                0,
-            ))));
-        self.analog_channels
-            .push(Arc::new(Mutex::new(SiglentOscilloscopeChannel::new(
-                self.proto.clone(),
-                1,
-            ))));
-        self.analog_channels
-            .push(Arc::new(Mutex::new(SiglentOscilloscopeChannel::new(
-                self.proto.clone(),
-                2,
-            ))));
-        self.analog_channels
-            .push(Arc::new(Mutex::new(SiglentOscilloscopeChannel::new(
-                self.proto.clone(),
-                3,
-            ))));
+        for i in 0..3 {
+            self.analog_channels
+                .push(Arc::new(Mutex::new(SiglentOscilloscopeChannel::new(
+                    self.proto.clone(),
+                    i,
+                ))));
+        }
         Ok(())
     }
 }
@@ -106,11 +119,137 @@ impl OscilloscopeEquipment for SiglentOscilloscope {
             .collect())
     }
 
-    async fn read_capture(&mut self) -> Result<OscilloscopeCapture> {
-        Ok(OscilloscopeCapture {
-            analog: vec![],
-            digital: vec![],
+    async fn get_memory_depths(&self) -> Result<Vec<u64>> {
+        let Some(model) = &self.model else {
+            return Ok(vec![]);
+        };
+        let Manufacturer::Siglent(family) = &model.man_family else {
+            return Err(Error::Unspecified(
+                "Siglent oscilloscope with non-siglent family!".into(),
+            ));
+        };
+
+        let n_chan = self.get_enabled_channels().await?;
+
+        Ok(match family {
+            SiglentFamily::SDS3000X => {
+                /* NOTE: This does not match what is listed in the documentation,
+                 * but is what is shown on an SDS3104X. */
+                match n_chan {
+                    0 | 1 => vec![
+                        2_000,
+                        10_000,
+                        20_000,
+                        100_000,
+                        200_000,
+                        1_000_000,
+                        2_000_000,
+                        10_000_000,
+                        20_000_000,
+                        100_000_000,
+                        200_000_000,
+                        400_000_000,
+                    ],
+                    _ => vec![
+                        1_000,
+                        5_000,
+                        10_000,
+                        50_000,
+                        100_000,
+                        500_000,
+                        1_000_000,
+                        5_000_000,
+                        10_000_000,
+                        50_000_000,
+                        100_000_000,
+                    ],
+                }
+            }
+            _ => vec![],
         })
+    }
+
+    async fn get_memory_depth(&self) -> Result<u64> {
+        let resp = self.query_str(":ACQ:MDEP?").await?;
+        let mult = match resp.chars().last() {
+            Some('k') => 1_000,
+            Some('M') => 1_000_000,
+            _ => 1,
+        };
+
+        let num = if mult != 1 {
+            &resp[0..resp.len() - 1]
+        } else {
+            &resp[..]
+        };
+
+        let num: u64 = num.parse().map_err(|e| {
+            Error::BadResponse(format!("Could not parse response `{}`: {}", num, e))
+        })?;
+        Ok(num * mult)
+    }
+
+    async fn set_memory_depth(&self, depth: u64) -> Result<()> {
+        let depth_str = if depth < 1_000 {
+            format!("{}", depth)
+        } else if depth < 1_000_000 {
+            format!("{}k", depth / 1_000)
+        } else if depth < 1_000_000_000 {
+            format!("{}M", depth / 1_000_000)
+        } else {
+            format!("{}G", depth / 1_000_000_000)
+        };
+        self.send(format!(":ACQ:MDEP {}", depth_str)).await
+    }
+
+    async fn get_trigger_mode(&self) -> Result<TriggerMode> {
+        let mode = self.query_str(":TRIG:MODE?").await?;
+
+        Ok(match mode.as_ref() {
+            "AUTO" => TriggerMode::Auto,
+            "NORMal" => TriggerMode::Normal,
+            "SINGle" => TriggerMode::Single,
+            _ => {
+                return Err(Error::BadResponse(format!(
+                    "Unknown trigger mode response '{}'",
+                    mode
+                )))
+            }
+        })
+    }
+
+    async fn set_trigger_mode(&mut self, mode: scope_trig::TriggerMode) -> Result<()> {
+        let mode_str = match mode {
+            TriggerMode::Auto => "AUTO",
+            TriggerMode::Normal => "NORM",
+            TriggerMode::Single => "SING",
+        };
+
+        self.send(format!(":TRIG:MODE {}", mode_str)).await
+    }
+
+    async fn trigger_now(&mut self) -> Result<()> {
+        self.send(":TRIG:MODE FTRIG").await
+    }
+
+    async fn read_capture(&mut self) -> Result<OscilloscopeCapture> {
+        let mut capture = OscilloscopeCapture::default();
+
+        for chan_lock in &self.analog_channels {
+            let chan = chan_lock.lock().await;
+
+            if !chan.get_enabled().await? {
+                continue;
+            }
+
+            let name = chan.name()?;
+            let waveform = chan.read_waveform().await?;
+
+            capture.analog.insert(name, waveform);
+
+            tokio::time::sleep(Duration::from_millis(100)).await;
+        }
+        Ok(capture)
     }
 }
 
@@ -234,7 +373,6 @@ impl OscilloscopeChannel for SiglentOscilloscopeChannel {
                 values: vec![],
             },
         };
-
         let samples = pre.wavedesc.n_points as usize;
         let mut sample = 0;
 
@@ -255,7 +393,33 @@ impl OscilloscopeChannel for SiglentOscilloscopeChannel {
             sample += samples_to_read;
         }
 
+        /* Consume final newline */
+        self.proto.lock().await.recv().await?;
+
         Ok(waveform)
+    }
+
+    async fn get_enabled(&self) -> Result<bool> {
+        let enabled = self
+            .query_str(format!(":CHAN{}:SWIT?", self.idx + 1))
+            .await?;
+
+        if enabled == "ON" {
+            Ok(true)
+        } else if enabled == "OFF" {
+            Ok(false)
+        } else {
+            Err(Error::BadResponse(format!(
+                "Bad channel switch response '{}'",
+                enabled
+            )))
+        }
+    }
+
+    async fn set_enabled(&mut self, enabled: bool) -> Result<()> {
+        let enable_str = if enabled { "ON" } else { "OFF" };
+        self.send(format!(":CHAN{}:SWIT {}", self.idx + 1, enable_str))
+            .await
     }
 }
 

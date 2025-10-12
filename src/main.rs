@@ -136,13 +136,28 @@ async fn test_scope(scope: &mut dyn OscilloscopeEquipment) -> Result<()> {
     for chan_mutex in &mut chans {
         let chan = chan_mutex.lock().await;
 
-        //println!("Testing channel {}", chan.name()?);
-        let waveform = chan.read_waveform().await?;
-
-        for pt in waveform.readings.values {
-            println!("{}", pt);
-        }
+        println!("Testing channel {}", chan.name()?);
+        println!("  enabled: {}", chan.get_enabled().await?);
     }
 
+    println!("Global:");
+    println!(
+        "  trigger mode: {}",
+        scope.get_trigger_mode().await?.as_ref()
+    );
+    println!(
+        "  supported memory depths: {:?}",
+        scope.get_memory_depths().await?
+    );
+    println!(
+        "  current memory depth: {}",
+        scope.get_memory_depth().await?
+    );
+
+    let capture = scope.read_capture().await?;
+    println!("  capture:");
+    for (name, chan) in capture.analog {
+        println!("    {}: {} points", name, chan.readings.values.len());
+    }
     Ok(())
 }

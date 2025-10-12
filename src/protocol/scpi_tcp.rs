@@ -159,4 +159,31 @@ impl ScpiProtocol for ScpiTcpProtocol {
             }
         }
     }
+
+    async fn flush_rx(&mut self, timeout: Duration) -> Result<()> {
+        let Some(stream) = &mut self.stream else {
+            return Err(Error::Unspecified("Not connected".into()));
+        };
+
+        let end = Instant::now() + timeout;
+        loop {
+            let now = Instant::now();
+            if now >= end {
+                break;
+            }
+            let remaining = end - now;
+
+            /* TODO: Use larger buffer for more efficiency */
+            match tokio::time::timeout(remaining, stream.read_u8()).await {
+                Err(_) => {
+                    break;
+                }
+                Ok(res) => {
+                    res?;
+                }
+            }
+        }
+
+        Ok(())
+    }
 }

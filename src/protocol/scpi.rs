@@ -21,6 +21,8 @@ pub trait ScpiProtocol: Protocol + Send + Sync {
     ) -> Result<Vec<u8>>;
 
     async fn recv_until(&mut self, byte: u8, timeout: Duration) -> Result<Vec<u8>>;
+
+    async fn flush_rx(&mut self, timeout: Duration) -> Result<()>;
 }
 impl dyn ScpiProtocol {
     pub async fn send(&mut self, data: impl AsRef<[u8]>) -> Result<()> {
