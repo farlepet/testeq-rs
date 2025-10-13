@@ -160,14 +160,7 @@ impl VxiClientLink {
         );
         let resp = client.request(req).await?;
 
-        if resp.len() > 1 {
-            println!("Received more than one response!");
-        }
-
-        let Some(res) = resp.first() else {
-            return Err(Error::Unspecified("No responses to request?".into()));
-        };
-        let mut result = res.get_success_result()?.to_vec();
+        let mut result = resp.get_success_result()?.to_vec();
         let result = rpc::RpcResponseDeviceWrite::unpack(&mut result)?;
 
         if result.error != rpc::RpcDeviceErrorCode::NoError {
@@ -214,14 +207,7 @@ impl VxiClientLink {
         let req = gen_call_packet(&client, VxiPortType::Core, rpc::RpcRequest::DeviceRead, req);
         let resp = client.request(req).await?;
 
-        if resp.len() > 1 {
-            println!("Received more than one response!");
-        }
-
-        let Some(res) = resp.first() else {
-            return Err(Error::Unspecified("No responses to request?".into()));
-        };
-        let mut result = res.get_success_result()?.to_vec();
+        let mut result = resp.get_success_result()?.to_vec();
         let result = rpc::RpcResponseDeviceRead::unpack(&mut result)?;
 
         if result.error != rpc::RpcDeviceErrorCode::NoError {
@@ -306,15 +292,7 @@ impl VxiClient {
         let req = gen_call_packet(&onc, VxiPortType::Core, rpc::RpcRequest::CreateLink, req);
         let resp = onc.request(req).await?;
 
-        if resp.len() > 1 {
-            println!("Received more than one response!");
-        }
-
-        let Some(res) = resp.first() else {
-            return Err(Error::Unspecified("No responses to request?".into()));
-        };
-
-        let mut result = res.get_success_result()?.to_vec();
+        let mut result = resp.get_success_result()?.to_vec();
         let result = rpc::RpcResponseCreateDeviceLink::unpack(&mut result)?;
 
         if result.error != rpc::RpcDeviceErrorCode::NoError {

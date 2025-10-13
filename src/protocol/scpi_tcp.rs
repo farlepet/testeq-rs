@@ -147,7 +147,7 @@ impl ScpiProtocol for ScpiTcpProtocol {
                         "Timed out waiting for {} for {} ms",
                         byte,
                         timeout.as_millis()
-                    )))
+                    )));
                 }
                 Ok(res) => {
                     let res = res?;

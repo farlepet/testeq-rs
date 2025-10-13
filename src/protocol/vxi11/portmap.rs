@@ -2,7 +2,7 @@
 
 use std::net::SocketAddr;
 
-use crate::error::{Error, Result};
+use crate::error::Result;
 
 use super::{
     onc::OncClient,
@@ -50,15 +50,7 @@ pub async fn request_port(
 
     let resp = client.request(packet).await?;
 
-    if resp.len() > 1 {
-        println!("Received more than one response!");
-    }
-
-    let Some(res) = resp.first() else {
-        return Err(Error::Unspecified("No responses to port request?".into()));
-    };
-
-    let mut results = res.get_success_result()?.to_vec();
+    let mut results = resp.get_success_result()?.to_vec();
 
     xdr::unpack_u16(&mut results)
 }

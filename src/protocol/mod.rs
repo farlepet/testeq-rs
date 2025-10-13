@@ -6,8 +6,8 @@ mod vxi11;
 
 pub use scpi::ScpiProtocol;
 pub use scpi_tcp::ScpiTcpProtocol;
-pub use vxi11::portmap::PORTMAP_PORT;
 pub use vxi11::ScpiVxiProtocol;
+pub use vxi11::portmap::PORTMAP_PORT;
 
 use crate::{error::Result, model::ModelInfo};
 

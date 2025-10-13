@@ -47,7 +47,7 @@ impl OncClient {
         Ok(())
     }
 
-    pub async fn request(&mut self, req: impl XdrPack) -> Result<Vec<RpcMessage>> {
+    pub async fn request(&mut self, req: impl XdrPack) -> Result<RpcMessage> {
         let Some(stream) = &self.stream else {
             return Err(Error::Unspecified("Not connected".into()));
         };
@@ -71,8 +71,8 @@ impl OncClient {
         resp
     }
 
-    async fn read_response(&self, stream: &mut TcpStream) -> Result<Vec<RpcMessage>> {
-        let mut responses = vec![];
+    async fn read_response(&self, stream: &mut TcpStream) -> Result<RpcMessage> {
+        let mut full_packet = vec![];
 
         loop {
             let header = stream.read_u32().await?;
@@ -80,20 +80,17 @@ impl OncClient {
 
             let mut packet = vec![0; size];
             stream.read_exact(&mut packet).await?;
+            full_packet.append(&mut packet);
 
-            let unpacked = RpcMessage::unpack(&mut packet)?;
-            if unpacked.xid == self.last_xid {
-                responses.push(unpacked);
-
-                if (header & LAST_MESSAGE_MARKER) != 0 {
-                    break;
+            if (header & LAST_MESSAGE_MARKER) != 0 {
+                let unpacked = RpcMessage::unpack(&mut full_packet)?;
+                if unpacked.xid == self.last_xid {
+                    return Ok(unpacked);
+                } else {
+                    println!("Received non-matching xid: {}", unpacked.xid);
                 }
-            } else {
-                println!("Received non-matching xid: {}", unpacked.xid);
             }
         }
-
-        Ok(responses)
     }
 
     pub fn gen_call_packet(
@@ -157,7 +154,7 @@ impl AuthStat {
             12 => Ok(Self::AuthNetAddr),
             13 => Ok(Self::RpcSecGssCredProblem),
             14 => Ok(Self::RpcSecGssCtxProblem),
-            i => Err(Error::BadResponse(format!("Unknown message type {}", i))),
+            i => Err(Error::BadResponse(format!("Unknown authstat type {}", i))),
         }
     }
 }
@@ -285,7 +282,7 @@ impl ReplyBody {
         match xdr::unpack_u32(src)? {
             0 => Ok(Self::Accepted(AcceptedReplyBody::unpack(src)?)),
             1 => Ok(Self::Rejected(RejectedReplyBody::unpack(src)?)),
-            i => Err(Error::BadResponse(format!("Unknown message type {}", i))),
+            i => Err(Error::BadResponse(format!("Unknown reply type {}", i))),
         }
     }
 }
