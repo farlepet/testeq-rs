@@ -19,13 +19,13 @@ impl std::error::Error for Error {}
 impl Display for Error {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Error::Unspecified(desc) => write!(f, "Unspecified error: {}", desc),
-            Error::Unimplemented(desc) => write!(f, "Unimplemented: {}", desc),
-            Error::Unhandled(e) => write!(f, "Unhandled error: {}", e),
-            Error::IoError(e) => write!(f, "IO error: {}", e),
-            Error::BadResponse(e) => write!(f, "Bad response: {}", e),
-            Error::NotSupported(e) => write!(f, "Not supported: {}", e),
-            Error::Timeout(e) => write!(f, "Timed out: {}", e),
+            Error::Unspecified(desc) => write!(f, "Unspecified error: {desc}"),
+            Error::Unimplemented(desc) => write!(f, "Unimplemented: {desc}"),
+            Error::Unhandled(e) => write!(f, "Unhandled error: {e}"),
+            Error::IoError(e) => write!(f, "IO error: {e}"),
+            Error::BadResponse(e) => write!(f, "Bad response: {e}"),
+            Error::NotSupported(e) => write!(f, "Not supported: {e}"),
+            Error::Timeout(e) => write!(f, "Timed out: {e}"),
         }
     }
 }

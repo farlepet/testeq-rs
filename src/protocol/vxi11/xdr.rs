@@ -75,7 +75,7 @@ pub fn unpack_u16(src: &mut Vec<u8>) -> Result<u16> {
 
     let val = u32::from_be_bytes(bytes);
     val.try_into()
-        .map_err(|_| Error::BadResponse(format!("Value {} does not represent a 16-bit value", val)))
+        .map_err(|_| Error::BadResponse(format!("Value {val} does not represent a 16-bit value")))
 }
 
 pub fn unpack_opaque(src: &mut Vec<u8>) -> Result<Vec<u8>> {

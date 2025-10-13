@@ -1,25 +1,14 @@
-#![allow(unused_imports)]
-/* To resolve in the future */
-#![allow(clippy::uninlined_format_args)]
-
 use std::{env, net::ToSocketAddrs, process::exit, time::Duration};
 
 use strum::IntoEnumIterator;
 use testeq_rs::{
     data::{Reading, Unit},
     equipment::{
-        Equipment,
-        drivers::{
-            multimeter_siglent::SiglentMultimeter, oscilloscope_siglent::SiglentOscilloscope,
-            psu_rigol::RigolPsu,
-        },
-        equipment_from_scpi,
+        Equipment, equipment_from_scpi,
         multimeter::{MultimeterEquipment, MultimeterMode},
         oscilloscope::OscilloscopeEquipment,
         psu::PowerSupplyEquipment,
-        spectrum_analyzer::{
-            SpectrumAnalyzerEquipment, SpectrumAnalyzerFreqConfig, SpectrumAnalyzerSpan,
-        },
+        spectrum_analyzer::SpectrumAnalyzerEquipment,
     },
     error::Result,
     protocol::{self, Protocol, ScpiTcpProtocol},
@@ -46,7 +35,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let equip = match proto.as_ref() {
         "scpi_tcp" => {
             let Some(socket) = path.to_socket_addrs()?.next() else {
-                println!("Could not resolve '{}'", path);
+                println!("Could not resolve '{path}'");
                 exit(1);
             };
             let mut scpi = ScpiTcpProtocol::new(socket)?;
@@ -60,7 +49,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 format!("{}:{}", path, protocol::PORTMAP_PORT)
             };
             let Some(socket) = path.to_socket_addrs()?.next() else {
-                println!("Could not resolve '{}'", path);
+                println!("Could not resolve '{path}'");
                 exit(1);
             };
             let mut client = protocol::ScpiVxiProtocol::new(socket);
@@ -68,7 +57,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             equipment_from_scpi(Box::new(client)).await?
         }
         _ => {
-            println!("Protocol '{}' not supported", proto);
+            println!("Protocol '{proto}' not supported");
             exit(1);
         }
     };
@@ -116,7 +105,7 @@ async fn test_dmm(dmm: &mut dyn MultimeterEquipment) -> Result<()> {
         for mode in MultimeterMode::iter() {
             /* TODO: Iterate ranges as well */
             if let Err(e) = chan.set_mode(mode, None).await {
-                println!("Could not set mode {:?}: {}", mode, e);
+                println!("Could not set mode {mode:?}: {e}");
                 continue;
             }
 
@@ -124,15 +113,12 @@ async fn test_dmm(dmm: &mut dyn MultimeterEquipment) -> Result<()> {
 
             match chan.get_mode().await {
                 Err(e) => {
-                    println!("Could not get mode: {}", e);
+                    println!("Could not get mode: {e}");
                     continue;
                 }
                 Ok(rmode) => {
                     if rmode != mode {
-                        println!(
-                            "Reported mode does not match set: {:?} != {:?}",
-                            rmode, mode
-                        );
+                        println!("Reported mode does not match set: {rmode:?} != {mode:?}");
                         continue;
                     }
                 }
@@ -140,10 +126,10 @@ async fn test_dmm(dmm: &mut dyn MultimeterEquipment) -> Result<()> {
 
             match chan.get_reading().await {
                 Err(e) => {
-                    println!("Could not get reading in mode {:?}: {}", mode, e);
+                    println!("Could not get reading in mode {mode:?}: {e}");
                     continue;
                 }
-                Ok(val) => println!("{:?} reading: {}", mode, val),
+                Ok(val) => println!("{mode:?} reading: {val}"),
             }
         }
     }

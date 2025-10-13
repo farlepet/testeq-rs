@@ -162,10 +162,7 @@ impl MultimeterChannel for SiglentMultimeterChannel {
                 self.send("CONF:CAP").await?;
             }
             _ => {
-                return Err(Error::NotSupported(format!(
-                    "Mode {:?} not supported",
-                    mode
-                )));
+                return Err(Error::NotSupported(format!("Mode {mode:?} not supported")));
             }
         }
 
@@ -195,7 +192,7 @@ impl MultimeterChannel for SiglentMultimeterChannel {
         let resp_vec: Vec<_> = resp.split(' ').collect();
 
         let Some(mode) = resp_vec.first() else {
-            return Err(Error::BadResponse(format!("Malformed response: {}", resp)));
+            return Err(Error::BadResponse(format!("Malformed response: {resp}")));
         };
 
         let mode = match *mode {
@@ -212,7 +209,7 @@ impl MultimeterChannel for SiglentMultimeterChannel {
             "FRES" => MultimeterMode::Resistance4W,
             "CAP" => MultimeterMode::Capacitance,
             _ => {
-                return Err(Error::BadResponse(format!("Unknown mode: {}", mode)));
+                return Err(Error::BadResponse(format!("Unknown mode: {mode}")));
             }
         };
         //self.mode = Some(mode);
@@ -227,12 +224,12 @@ impl MultimeterChannel for SiglentMultimeterChannel {
         let resp_vec: Vec<_> = resp.split(',').collect();
 
         let Some(reading) = resp_vec.first() else {
-            return Err(Error::BadResponse(format!("Malformed response: {}", resp)));
+            return Err(Error::BadResponse(format!("Malformed response: {resp}")));
         };
 
-        let mut reading: f64 = reading.parse().map_err(|e| {
-            Error::BadResponse(format!("Could not parse {} as f64: {}", reading, e))
-        })?;
+        let mut reading: f64 = reading
+            .parse()
+            .map_err(|e| Error::BadResponse(format!("Could not parse {reading} as f64: {e}")))?;
         if reading > 1e37 {
             /* Overload */
             reading = f64::NAN;

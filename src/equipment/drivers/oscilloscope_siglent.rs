@@ -184,15 +184,15 @@ impl OscilloscopeEquipment for SiglentOscilloscope {
             &resp[..]
         };
 
-        let num: u64 = num.parse().map_err(|e| {
-            Error::BadResponse(format!("Could not parse response `{}`: {}", num, e))
-        })?;
+        let num: u64 = num
+            .parse()
+            .map_err(|e| Error::BadResponse(format!("Could not parse response `{num}`: {e}")))?;
         Ok(num * mult)
     }
 
     async fn set_memory_depth(&self, depth: u64) -> Result<()> {
         let depth_str = if depth < 1_000 {
-            format!("{}", depth)
+            format!("{depth}")
         } else if depth < 1_000_000 {
             format!("{}k", depth / 1_000)
         } else if depth < 1_000_000_000 {
@@ -200,7 +200,7 @@ impl OscilloscopeEquipment for SiglentOscilloscope {
         } else {
             format!("{}G", depth / 1_000_000_000)
         };
-        self.send(format!(":ACQ:MDEP {}", depth_str)).await
+        self.send(format!(":ACQ:MDEP {depth_str}")).await
     }
 
     async fn get_trigger_mode(&self) -> Result<TriggerMode> {
@@ -212,8 +212,7 @@ impl OscilloscopeEquipment for SiglentOscilloscope {
             "SINGle" => TriggerMode::Single,
             _ => {
                 return Err(Error::BadResponse(format!(
-                    "Unknown trigger mode response '{}'",
-                    mode
+                    "Unknown trigger mode response '{mode}'"
                 )));
             }
         })
@@ -226,7 +225,7 @@ impl OscilloscopeEquipment for SiglentOscilloscope {
             TriggerMode::Single => "SING",
         };
 
-        self.send(format!(":TRIG:MODE {}", mode_str)).await
+        self.send(format!(":TRIG:MODE {mode_str}")).await
     }
 
     async fn trigger_now(&mut self) -> Result<()> {
@@ -411,8 +410,7 @@ impl OscilloscopeChannel for SiglentOscilloscopeChannel {
             Ok(false)
         } else {
             Err(Error::BadResponse(format!(
-                "Bad channel switch response '{}'",
-                enabled
+                "Bad channel switch response '{enabled}'"
             )))
         }
     }

@@ -53,7 +53,7 @@ impl dyn ScpiProtocol {
         /* Some equipment may wrap values in quotes */
         let res = res.trim_start_matches('"').trim_end_matches('"');
         res.parse()
-            .map_err(|e| Error::BadResponse(format!("Could not parse response `{}`: {}", res, e)))
+            .map_err(|e| Error::BadResponse(format!("Could not parse response `{res}`: {e}")))
     }
 
     pub async fn recv(&mut self) -> Result<Vec<u8>> {

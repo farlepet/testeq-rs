@@ -135,7 +135,7 @@ impl RigolPsuChannel {
     async fn query_f32(&self, cmd: impl AsRef<[u8]>) -> Result<f32> {
         let resp = self.query_str(cmd).await?;
         resp.parse()
-            .map_err(|e| Error::BadResponse(format!("Could not parse response `{}`: {}", resp, e)))
+            .map_err(|e| Error::BadResponse(format!("Could not parse response `{resp}`: {e}")))
     }
 }
 #[async_trait::async_trait]

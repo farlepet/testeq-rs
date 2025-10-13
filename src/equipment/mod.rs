@@ -60,10 +60,7 @@ pub async fn equipment_from_scpi(mut proto: Box<dyn ScpiProtocol>) -> Result<Equ
         _ => {}
     }
 
-    Err(Error::NotSupported(format!(
-        "No driver matching {:?}",
-        model
-    )))
+    Err(Error::NotSupported(format!("No driver matching {model:?}")))
 }
 
 #[async_trait]

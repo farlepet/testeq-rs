@@ -90,7 +90,7 @@ impl Display for SpectrumAnalyzerSpan {
                 unit: Unit::Frequency,
                 value: self.span() as f64,
             };
-            write!(f, "{} ± {}", center, span)
+            write!(f, "{center} ± {span}")
         } else {
             let start = Reading {
                 unit: Unit::Frequency,
@@ -100,7 +100,7 @@ impl Display for SpectrumAnalyzerSpan {
                 unit: Unit::Frequency,
                 value: self.stop() as f64,
             };
-            write!(f, "{} - {}", start, stop)
+            write!(f, "{start} - {stop}")
         }
     }
 }

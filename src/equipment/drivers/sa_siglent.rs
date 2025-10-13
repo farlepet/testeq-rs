@@ -168,8 +168,7 @@ impl SiglentSaUnit {
             "V" => Ok(Self::Volts),
             "W" => Ok(Self::Watts),
             _ => Err(Error::BadResponse(format!(
-                "Unknown reported unit type '{}'",
-                value
+                "Unknown reported unit type '{value}'"
             ))),
         }
     }

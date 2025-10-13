@@ -17,10 +17,7 @@ impl ModelInfo {
     pub fn from_idn(idn: &str) -> Result<Self> {
         let idn_sep: Vec<_> = idn.split(',').collect();
         if idn_sep.len() < 2 {
-            return Err(Error::Unspecified(format!(
-                "Invalid *IDN? response: {}",
-                idn
-            )));
+            return Err(Error::Unspecified(format!("Invalid *IDN? response: {idn}")));
         }
 
         Ok(Self {

@@ -154,7 +154,7 @@ impl AuthStat {
             12 => Ok(Self::AuthNetAddr),
             13 => Ok(Self::RpcSecGssCredProblem),
             14 => Ok(Self::RpcSecGssCtxProblem),
-            i => Err(Error::BadResponse(format!("Unknown authstat type {}", i))),
+            i => Err(Error::BadResponse(format!("Unknown authstat type {i}"))),
         }
     }
 }
@@ -169,7 +169,7 @@ impl MessageBody {
         match xdr::unpack_u32(src)? {
             0 => Ok(Self::Call(CallBody::unpack(src)?)),
             1 => Ok(Self::Reply(ReplyBody::unpack(src)?)),
-            i => Err(Error::BadResponse(format!("Unknown message type {}", i))),
+            i => Err(Error::BadResponse(format!("Unknown message type {i}"))),
         }
     }
 }
@@ -209,8 +209,7 @@ impl RpcMessage {
         let reply = match reply {
             ReplyBody::Rejected(reject) => {
                 return Err(Error::Unspecified(format!(
-                    "Reply is an rejection: {:?}",
-                    reject
+                    "Reply is an rejection: {reject:?}"
                 )));
             }
             ReplyBody::Accepted(accept) => accept,
@@ -220,8 +219,7 @@ impl RpcMessage {
             AcceptedReplyBodyType::Success(success) => success,
             resp => {
                 return Err(Error::Unspecified(format!(
-                    "Reply is an accept with error: {:?}",
-                    resp
+                    "Reply is an accept with error: {resp:?}"
                 )));
             }
         };
@@ -282,7 +280,7 @@ impl ReplyBody {
         match xdr::unpack_u32(src)? {
             0 => Ok(Self::Accepted(AcceptedReplyBody::unpack(src)?)),
             1 => Ok(Self::Rejected(RejectedReplyBody::unpack(src)?)),
-            i => Err(Error::BadResponse(format!("Unknown reply type {}", i))),
+            i => Err(Error::BadResponse(format!("Unknown reply type {i}"))),
         }
     }
 }
@@ -336,8 +334,7 @@ impl AcceptedReplyBodyType {
             4 => Ok(Self::GarbageArgs()),
             5 => Ok(Self::SystemErr()),
             i => Err(Error::BadResponse(format!(
-                "Unknown accepted reply type {}",
-                i
+                "Unknown accepted reply type {i}"
             ))),
         }
     }
@@ -382,8 +379,7 @@ impl RejectedReplyBody {
             0 => Ok(Self::Mismatch(ProgMismatchBody::unpack(src)?)),
             1 => Ok(Self::AuthError(AuthStat::unpack(src)?)),
             i => Err(Error::BadResponse(format!(
-                "Unknown rejected reply type {}",
-                i
+                "Unknown rejected reply type {i}"
             ))),
         }
     }
@@ -413,7 +409,7 @@ impl OpaqueAuth {
                 2 => AuthFlavor::Short,
                 3 => AuthFlavor::Dh,
                 4 => AuthFlavor::RpcSecGss,
-                i => return Err(Error::BadResponse(format!("Unknown auth flavor {}", i))),
+                i => return Err(Error::BadResponse(format!("Unknown auth flavor {i}"))),
             },
             body: xdr::unpack_opaque(src)?,
         })
