@@ -5,12 +5,12 @@ use tokio::sync::Mutex;
 use crate::{
     data::{Readings, Unit},
     equipment::{
+        BaseEquipment,
         oscilloscope::{
-            scope_trig::{self, TriggerMode},
             AnalogWaveform, OscilloscopeCapture, OscilloscopeChannel, OscilloscopeDigitalChannel,
             OscilloscopeEquipment,
+            scope_trig::{self, TriggerMode},
         },
-        BaseEquipment,
     },
     error::{Error, Result},
     model::{Manufacturer, ModelInfo, SiglentFamily},
@@ -214,7 +214,7 @@ impl OscilloscopeEquipment for SiglentOscilloscope {
                 return Err(Error::BadResponse(format!(
                     "Unknown trigger mode response '{}'",
                     mode
-                )))
+                )));
             }
         })
     }
@@ -503,7 +503,7 @@ impl WaveDescData {
             )))
         } else {
             let ptr: *const [u8; std::mem::size_of::<Self>()] = data.as_ptr() as _;
-            Ok(unsafe { std::mem::transmute(*ptr) })
+            Ok(unsafe { std::mem::transmute::<[u8; 346], Self>(*ptr) })
         }
     }
 }

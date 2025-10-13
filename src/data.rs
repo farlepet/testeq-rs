@@ -35,6 +35,8 @@ pub enum Unit {
     Voltage,
     /// Current - amps
     Current,
+    /// Power - watts
+    Power,
     /// Resistance - ohms
     Resistance,
     /// Temperature - degrees celsius
@@ -47,6 +49,12 @@ pub enum Unit {
     Capacitance,
     /// Inductance - henries
     Inductance,
+    /// Logarithmic Voltage - dBmV
+    LogVoltage,
+    /// Logarithmic current - dBuA
+    LogCurrent,
+    /// Logarithmic power - dBm
+    LogPower,
 }
 impl Unit {
     fn unit_abbrev(&self) -> &'static str {
@@ -54,12 +62,16 @@ impl Unit {
             Self::None => "",
             Self::Voltage => "V",
             Self::Current => "A",
+            Self::Power => "W",
             Self::Resistance => "Ω",
             Self::Temperature => "°C",
             Self::Frequency => "Hz",
             Self::Period => "s",
             Self::Capacitance => "F",
             Self::Inductance => "H",
+            Self::LogVoltage => "dBmV",
+            Self::LogCurrent => "dBuA",
+            Self::LogPower => "dBm",
         }
     }
 }
@@ -68,6 +80,11 @@ impl Unit {
 pub struct Reading {
     pub unit: Unit,
     pub value: f64,
+}
+impl Reading {
+    pub fn new(unit: Unit, value: f64) -> Self {
+        Self { unit, value }
+    }
 }
 impl Display for Reading {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {

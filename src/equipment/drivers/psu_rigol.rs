@@ -4,8 +4,8 @@ use tokio::sync::Mutex;
 
 use crate::{
     equipment::{
-        psu::{PowerSupplyChannel, PowerSupplyChannelDetails, PowerSupplyEquipment},
         BaseEquipment,
+        psu::{PowerSupplyChannel, PowerSupplyChannelDetails, PowerSupplyEquipment},
     },
     error::{Error, Result},
     model::ModelInfo,

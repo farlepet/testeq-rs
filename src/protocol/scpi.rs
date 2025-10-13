@@ -2,7 +2,10 @@ use std::time::Duration;
 
 use async_trait::async_trait;
 
-use crate::{error::Result, model::ModelInfo};
+use crate::{
+    error::{Error, Result},
+    model::ModelInfo,
+};
 
 use super::Protocol;
 
@@ -39,14 +42,26 @@ impl dyn ScpiProtocol {
         self.int_query(&to_send).await
     }
 
+    pub async fn query_str(&mut self, data: impl AsRef<[u8]>) -> Result<String> {
+        Ok(String::from_utf8_lossy(&self.query(data).await?)
+            .trim()
+            .into())
+    }
+
+    pub async fn query_f32(&mut self, data: impl AsRef<[u8]>) -> Result<f32> {
+        let res = self.query_str(data).await?;
+        /* Some equipment may wrap values in quotes */
+        let res = res.trim_start_matches('"').trim_end_matches('"');
+        res.parse()
+            .map_err(|e| Error::BadResponse(format!("Could not parse response `{}`: {}", res, e)))
+    }
+
     pub async fn recv(&mut self) -> Result<Vec<u8>> {
         self.int_recv().await
     }
 
     pub async fn identify(&mut self) -> Result<String> {
-        let res = self.query("*IDN?").await?;
-
-        Ok(String::from_utf8_lossy(&res).into())
+        self.query_str("*IDN?").await
     }
 
     pub async fn idn_model(&mut self) -> Result<ModelInfo> {

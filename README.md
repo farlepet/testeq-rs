@@ -22,4 +22,8 @@ Currently under development, and is not yet in a very usable or stable state.
   * Siglent SDS3000X HD
     * Currently only minimal support
     * Only SDS3104X HD supported currently
-
+* Spectrum Analyzers
+  * Siglent SSA3000X Plus
+    * Currently only minimal support
+    * Only SSA3075X Plus tested, others likely to work
+    * Other SSA series devices may work as well

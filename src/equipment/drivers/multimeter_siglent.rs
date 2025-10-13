@@ -5,8 +5,8 @@ use tokio::sync::{Mutex, RwLock};
 use crate::{
     data::Reading,
     equipment::{
-        multimeter::{MultimeterChannel, MultimeterDetails, MultimeterEquipment, MultimeterMode},
         BaseEquipment,
+        multimeter::{MultimeterChannel, MultimeterDetails, MultimeterEquipment, MultimeterMode},
     },
     error::{Error, Result},
     model::ModelInfo,
@@ -165,7 +165,7 @@ impl MultimeterChannel for SiglentMultimeterChannel {
                 return Err(Error::NotSupported(format!(
                     "Mode {:?} not supported",
                     mode
-                )))
+                )));
             }
         }
 

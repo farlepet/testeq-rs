@@ -1,10 +1,14 @@
 #![allow(unused_imports)]
+/* To resolve in the future */
+#![allow(clippy::uninlined_format_args)]
 
 use std::{env, net::ToSocketAddrs, process::exit, time::Duration};
 
 use strum::IntoEnumIterator;
 use testeq_rs::{
+    data::{Reading, Unit},
     equipment::{
+        Equipment,
         drivers::{
             multimeter_siglent::SiglentMultimeter, oscilloscope_siglent::SiglentOscilloscope,
             psu_rigol::RigolPsu,
@@ -13,7 +17,9 @@ use testeq_rs::{
         multimeter::{MultimeterEquipment, MultimeterMode},
         oscilloscope::OscilloscopeEquipment,
         psu::PowerSupplyEquipment,
-        Equipment,
+        spectrum_analyzer::{
+            SpectrumAnalyzerEquipment, SpectrumAnalyzerFreqConfig, SpectrumAnalyzerSpan,
+        },
     },
     error::Result,
     protocol::{self, Protocol, ScpiTcpProtocol},
@@ -71,6 +77,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         Equipment::PowerSupply(mut psu) => test_psu(psu.as_mut()).await?,
         Equipment::Multimeter(mut dmm) => test_dmm(dmm.as_mut()).await?,
         Equipment::Oscilloscope(mut scope) => test_scope(scope.as_mut()).await?,
+        Equipment::SpectrumAnalyzer(mut sa) => test_sa(sa.as_mut()).await?,
     }
 
     Ok(())
@@ -173,6 +180,56 @@ async fn test_scope(scope: &mut dyn OscilloscopeEquipment) -> Result<()> {
     println!("  capture:");
     for (name, chan) in capture.analog {
         println!("    {}: {} points", name, chan.readings.values.len());
+    }
+    Ok(())
+}
+
+async fn test_sa(sa: &mut dyn SpectrumAnalyzerEquipment) -> Result<()> {
+    sa.connect().await?;
+
+    let mut chans = sa.get_channels().await?;
+    for chan_mutex in &mut chans {
+        let chan = chan_mutex.lock().await;
+
+        println!("Testing channel {}", chan.name()?);
+        let freq_cfg = chan.get_frequency_conf().await?;
+        println!("  Span: {}", freq_cfg.span);
+        println!(
+            "  Resolution: {}",
+            Reading::new(Unit::Frequency, freq_cfg.resolution as f64)
+        );
+
+        let trace = chan.read_trace(0).await?;
+        println!("  Received {} points", trace.readings.values.len());
+        println!("    Frequency: {}", trace.span);
+        println!(
+            "    Frequency step: {}",
+            Reading::new(Unit::Frequency, trace.freq_step as f64)
+        );
+
+        let mut min = f64::MAX;
+        let mut max = f64::MIN;
+        let mut max_freq = 0.0;
+        let mut avg = 0.0;
+        for (idx, point) in trace.readings.values.iter().enumerate() {
+            if *point < min {
+                min = *point;
+            }
+            if *point > max {
+                max = *point;
+                max_freq = trace.span.start() + trace.freq_step * idx as f32;
+            }
+            avg += point;
+        }
+        avg /= trace.readings.values.len() as f64;
+
+        println!("    Min: {}", Reading::new(trace.readings.unit, min));
+        println!(
+            "    Max: {} @ {}",
+            Reading::new(trace.readings.unit, max),
+            Reading::new(Unit::Frequency, max_freq as f64)
+        );
+        println!("    Average: {}", Reading::new(trace.readings.unit, avg));
     }
     Ok(())
 }
