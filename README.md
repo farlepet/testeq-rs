@@ -6,7 +6,9 @@ Currently under development, and is not yet in a very usable or stable state.
 
 ## Supported transports
 
-* SCPI over raw TCP
+* SCPI
+  * SCPI over raw TCP
+  * SCPI over VXI-11 (TCP)
 
 ## Supported test equipment
 
@@ -14,5 +16,10 @@ Currently under development, and is not yet in a very usable or stable state.
   * Rigol DP800
     * Only DP832 supported currently
 * Multimeters
-  * Signlent SDM4065A
-    * Minimal support currently
+  * Siglent SDM4065A
+    * Currently only minimal support
+* Oscilloscopes
+  * Siglent SDS3000X HD
+    * Currently only minimal support
+    * Only SDS3104X HD supported currently
+

@@ -16,7 +16,7 @@ use testeq_rs::{
         Equipment,
     },
     error::Result,
-    protocol::{Protocol, ScpiTcpProtocol},
+    protocol::{self, Protocol, ScpiTcpProtocol},
 };
 use tokio::time::sleep;
 
@@ -28,6 +28,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         println!("Usage: ... <protocol> <path>");
         println!("  <protocol>:");
         println!("    scpi_tcp: SCPI over raw TCP");
+        println!("    scpi_vxi11: SCPI over raw TCP, VXI11 port determination");
         println!("  <path>");
         println!("    Path to device, or network address (IP:PORT or HOSTNAME:PORT)");
         exit(1);
@@ -45,6 +46,20 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             let mut scpi = ScpiTcpProtocol::new(socket)?;
             scpi.connect().await?;
             equipment_from_scpi(Box::new(scpi)).await?
+        }
+        "scpi_vxi11" => {
+            let path = if path.contains(':') {
+                path.clone()
+            } else {
+                format!("{}:{}", path, protocol::PORTMAP_PORT)
+            };
+            let Some(socket) = path.to_socket_addrs()?.next() else {
+                println!("Could not resolve '{}'", path);
+                exit(1);
+            };
+            let mut client = protocol::ScpiVxiProtocol::new(socket);
+            client.connect().await?;
+            equipment_from_scpi(Box::new(client)).await?
         }
         _ => {
             println!("Protocol '{}' not supported", proto);
