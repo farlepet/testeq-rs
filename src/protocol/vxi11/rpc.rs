@@ -113,6 +113,7 @@ impl XdrPack for RpcRequestCreateDeviceLink {
     }
 }
 
+#[allow(unused)]
 #[derive(Debug)]
 pub struct RpcResponseCreateDeviceLink {
     /// Error code
@@ -158,6 +159,7 @@ impl XdrPack for RpcRequestDeviceWrite {
     }
 }
 
+#[allow(unused)]
 #[derive(Debug)]
 pub struct RpcResponseDeviceWrite {
     /// Error code
@@ -200,6 +202,7 @@ impl XdrPack for RpcRequestDeviceRead {
     }
 }
 
+#[allow(unused)]
 #[derive(Debug)]
 pub struct RpcDeviceReadReason {
     /// request_size bytes have been transferred

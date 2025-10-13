@@ -239,6 +239,7 @@ impl XdrPack for RpcMessage {
     }
 }
 
+#[allow(unused)]
 #[derive(Debug)]
 pub struct CallBody {
     pub rpc_version: u32,
@@ -303,6 +304,7 @@ impl XdrPack for ReplyBody {
     }
 }
 
+#[allow(unused)]
 #[derive(Debug)]
 pub struct AcceptedReplyBody {
     pub verf: OpaqueAuth,
@@ -317,6 +319,7 @@ impl AcceptedReplyBody {
     }
 }
 
+#[allow(unused)]
 #[derive(Debug)]
 pub enum AcceptedReplyBodyType {
     Success(SuccessAcceptedReplyBody),
@@ -355,6 +358,7 @@ impl SuccessAcceptedReplyBody {
     }
 }
 
+#[allow(unused)]
 #[derive(Debug)]
 pub struct ProgMismatchBody {
     pub low: u32,
@@ -369,6 +373,7 @@ impl ProgMismatchBody {
     }
 }
 
+#[allow(unused)]
 #[derive(Debug)]
 pub enum RejectedReplyBody {
     Mismatch(ProgMismatchBody),

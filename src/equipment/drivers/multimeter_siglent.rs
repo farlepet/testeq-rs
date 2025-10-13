@@ -13,6 +13,7 @@ use crate::{
     protocol::ScpiProtocol,
 };
 
+#[allow(unused)]
 pub struct SiglentMultimeter {
     proto: Arc<Mutex<Box<dyn ScpiProtocol>>>,
     model: Option<ModelInfo>,
@@ -114,7 +115,7 @@ impl MultimeterChannel for SiglentMultimeterChannel {
         }
     }
 
-    async fn set_mode(&mut self, mode: MultimeterMode, range: Option<u8>) -> Result<()> {
+    async fn set_mode(&mut self, mode: MultimeterMode, _range: Option<u8>) -> Result<()> {
         match mode {
             MultimeterMode::DcVoltage => {
                 /* TODO: Support setting range */

@@ -17,6 +17,7 @@ use crate::{
     protocol::ScpiProtocol,
 };
 
+#[allow(unused)]
 pub struct SiglentOscilloscope {
     proto: Arc<Mutex<Box<dyn ScpiProtocol>>>,
     model: Option<ModelInfo>,
@@ -423,10 +424,12 @@ impl OscilloscopeChannel for SiglentOscilloscopeChannel {
     }
 }
 
+#[allow(unused)]
 struct SiglentOscilloscopeDigitalChannel {
     proto: Arc<Mutex<Box<dyn ScpiProtocol>>>,
     idx: u8,
 }
+#[allow(unused)]
 impl SiglentOscilloscopeDigitalChannel {
     fn new(proto: Arc<Mutex<Box<dyn ScpiProtocol>>>, idx: u8) -> Self {
         Self { proto, idx }
@@ -505,6 +508,7 @@ impl WaveDescData {
     }
 }
 
+#[allow(unused)]
 #[derive(Debug)]
 struct WaveformPreable {
     header: String,
