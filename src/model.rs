@@ -49,7 +49,9 @@ impl Manufacturer {
     fn from_idn(idn: &[&str]) -> Result<Self> {
         let man = idn[0].to_lowercase();
 
-        if man.contains("rigol") {
+        if man.contains("hewlett-packard") || man.contains("agilent") || man.contains("keysight") {
+            Ok(Self::Keysight(KeysightFamily::from_idn(idn)?))
+        } else if man.contains("rigol") {
             Ok(Self::Rigol(RigolFamily::from_idn(idn)?))
         } else if man.contains("siglent") {
             Ok(Self::Siglent(SiglentFamily::from_idn(idn)?))
@@ -131,8 +133,20 @@ pub enum SpirentFamily {
 #[derive(Clone, Debug)]
 pub enum KeysightFamily {
     /* TODO: How to deal with leading numbers? */
+    Unknown,
     /// Agilent 86130A bit error rate tester
     _86130A,
     /// HP/Agilent/Keysight 6800-series AC source/analyzer
     _6800,
+}
+impl KeysightFamily {
+    fn from_idn(idn: &[&str]) -> Result<Self> {
+        let model = idn[1].to_lowercase();
+
+        if model.starts_with("68") {
+            Ok(Self::_6800)
+        } else {
+            Ok(Self::Unknown)
+        }
+    }
 }

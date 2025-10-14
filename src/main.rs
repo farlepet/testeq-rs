@@ -4,7 +4,9 @@ use strum::IntoEnumIterator;
 use testeq_rs::{
     data::{Reading, Unit},
     equipment::{
-        Equipment, equipment_from_scpi,
+        Equipment,
+        ac_source::AcSourceEquipment,
+        equipment_from_scpi,
         multimeter::{MultimeterEquipment, MultimeterMode},
         oscilloscope::OscilloscopeEquipment,
         psu::PowerSupplyEquipment,
@@ -72,6 +74,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     };
 
     match equip {
+        Equipment::AcSource(mut ac) => test_ac_source(ac.as_mut()).await?,
         Equipment::PowerSupply(mut psu) => test_psu(psu.as_mut()).await?,
         Equipment::Multimeter(mut dmm) => test_dmm(dmm.as_mut()).await?,
         Equipment::Oscilloscope(mut scope) => test_scope(scope.as_mut()).await?,
@@ -226,5 +229,56 @@ async fn test_sa(sa: &mut dyn SpectrumAnalyzerEquipment) -> Result<()> {
         );
         println!("    Average: {}", Reading::new(trace.readings.unit, avg));
     }
+    Ok(())
+}
+
+async fn test_ac_source(ac: &mut dyn AcSourceEquipment) -> Result<()> {
+    ac.connect().await?;
+
+    ac.trigger_now().await?;
+
+    let mut chans = ac.get_channels().await?;
+    for chan_mutex in &mut chans {
+        let chan = chan_mutex.lock().await;
+
+        println!("Testing channel {}", chan.name()?);
+        let volt = chan.read_voltage().await?;
+        println!("  Voltage:");
+        println!("    DC: {}", Reading::new(Unit::Voltage, volt.dc as f64));
+        println!(
+            "    AC: {} RMS",
+            Reading::new(Unit::Voltage, volt.ac_rms as f64)
+        );
+        let curr = chan.read_current().await?;
+        println!("  Current:");
+        println!("    DC: {}", Reading::new(Unit::Current, curr.dc as f64));
+        println!(
+            "    AC: {} RMS",
+            Reading::new(Unit::Current, curr.ac_rms as f64)
+        );
+        println!("    MAX: {}", Reading::new(Unit::Current, curr.max as f64));
+        let pow = chan.read_power().await?;
+        println!("  Power:");
+        println!("    DC: {}", Reading::new(Unit::Power, pow.dc as f64));
+        println!(
+            "    AC real: {}",
+            Reading::new(Unit::Power, pow.real as f64)
+        );
+        println!(
+            "    AC apparent: {}",
+            Reading::new(Unit::Power, pow.apparent as f64)
+        );
+        println!(
+            "    AC reactive: {}",
+            Reading::new(Unit::Power, pow.reactive as f64)
+        );
+        println!("    Power factor: {}", pow.factor);
+        let freq = chan.read_frequency().await?;
+        println!(
+            "  Frequency: {}",
+            Reading::new(Unit::Frequency, freq as f64)
+        );
+    }
+
     Ok(())
 }

@@ -1,3 +1,4 @@
+pub mod ac_source;
 pub mod drivers;
 pub mod multimeter;
 pub mod oscilloscope;
@@ -11,8 +12,9 @@ use psu::PowerSupplyEquipment;
 use spectrum_analyzer::SpectrumAnalyzerEquipment;
 
 use crate::{
+    equipment::{ac_source::AcSourceEquipment, drivers::ac_source_keysight::KeysightAcSource},
     error::{Error, Result},
-    model::{Manufacturer, RigolFamily, SiglentFamily},
+    model::{KeysightFamily, Manufacturer, RigolFamily, SiglentFamily},
     protocol::ScpiProtocol,
 };
 
@@ -22,6 +24,7 @@ use self::drivers::{
 };
 
 pub enum Equipment {
+    AcSource(Box<dyn AcSourceEquipment>),
     PowerSupply(Box<dyn PowerSupplyEquipment>),
     Multimeter(Box<dyn MultimeterEquipment>),
     Oscilloscope(Box<dyn OscilloscopeEquipment>),
@@ -33,6 +36,11 @@ pub async fn equipment_from_scpi(mut proto: Box<dyn ScpiProtocol>) -> Result<Equ
 
     #[allow(clippy::collapsible_match)]
     match &model.man_family {
+        Manufacturer::Keysight(family) => {
+            if matches!(family, KeysightFamily::_6800) {
+                return Ok(Equipment::AcSource(Box::new(KeysightAcSource::new(proto)?)));
+            }
+        }
         Manufacturer::Rigol(family) => match family {
             RigolFamily::DP800 | RigolFamily::DP2000 => {
                 return Ok(Equipment::PowerSupply(Box::new(RigolPsu::new(proto)?)));

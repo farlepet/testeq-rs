@@ -27,3 +27,7 @@ Currently under development, and is not yet in a very usable or stable state.
     * Currently only minimal support
     * Only SSA3075X Plus tested, others likely to work
     * Other SSA series devices may work as well
+* AC power sources
+  * HP/Agilent/Keysight 6800
+    * Currently only minimal readback support
+    * Only 6811B tested, others likely to work for phase 1
