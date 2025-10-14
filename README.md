@@ -7,6 +7,7 @@ Currently under development, and is not yet in a very usable or stable state.
 ## Supported transports
 
 * SCPI
+  * SCPI over serial port
   * SCPI over raw TCP
   * SCPI over VXI-11 (TCP)
 
