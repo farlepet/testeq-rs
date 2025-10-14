@@ -56,6 +56,15 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             client.connect().await?;
             equipment_from_scpi(Box::new(client)).await?
         }
+        "scpi_serial" => {
+            let (path, baud) = match path.split_once(':') {
+                Some((path, baud)) => (path, baud.parse()?),
+                None => (path.as_ref(), 9600),
+            };
+            let mut client = protocol::ScpiSerialProtocol::new(path, baud);
+            client.connect().await?;
+            equipment_from_scpi(Box::new(client)).await?
+        }
         _ => {
             println!("Protocol '{proto}' not supported");
             exit(1);
