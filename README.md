@@ -14,8 +14,10 @@ Currently under development, and is not yet in a very usable or stable state.
 ## Supported test equipment
 
 * Power supplies
-  * Rigol DP800
-    * Only DP832 supported currently
+  * Rigol DP700, DP800, DP900, DP2000 series
+    * Only tested on DP832
+  * Siglent SPD1000X, SPD3000, SPD4000X series
+    * Only tested on SPD4306X
 * Multimeters
   * Siglent SDM4065A
     * Currently only minimal support

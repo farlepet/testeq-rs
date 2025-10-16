@@ -14,6 +14,15 @@ pub struct PowerSupplyChannelDetails {
     pub max_voltage: f32,
     pub max_current: f32,
 }
+impl PowerSupplyChannelDetails {
+    pub fn new(min_v: f32, max_v: f32, max_c: f32) -> Self {
+        Self {
+            min_voltage: min_v,
+            max_voltage: max_v,
+            max_current: max_c,
+        }
+    }
+}
 
 #[async_trait]
 pub trait PowerSupplyEquipment: BaseEquipment {

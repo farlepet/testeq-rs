@@ -1,3 +1,5 @@
+use std::fmt::Display;
+
 use crate::error::{Error, Result};
 
 #[derive(Clone, Debug)]
@@ -27,6 +29,15 @@ impl ModelInfo {
             serial: idn_sep.get(2).map(|s| s.to_string()),
             version: idn_sep.get(3).map(|s| s.to_string()),
         })
+    }
+}
+impl Display for ModelInfo {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{},{},{:?},{:?}",
+            self.manufacturer, self.model, self.serial, self.version
+        )
     }
 }
 
@@ -72,8 +83,12 @@ pub enum RigolFamily {
     Unknown,
     /// Rigol DS1200 series oscilloscope
     DS1200,
+    /// Rigol DP700 series power supply
+    DP700,
     /// Rigol DP800 series power supply
     DP800,
+    /// Rigol DP900 series power supply
+    DP900,
     /// Rigol DP2000 series power supply
     DP2000,
 }
@@ -83,8 +98,12 @@ impl RigolFamily {
 
         if model.contains("ds12") {
             Ok(Self::DS1200)
+        } else if model.contains("dp7") {
+            Ok(Self::DP700)
         } else if model.contains("dp8") {
             Ok(Self::DP800)
+        } else if model.contains("dp9") {
+            Ok(Self::DP900)
         } else if model.contains("dp2") {
             Ok(Self::DP2000)
         } else {
@@ -96,28 +115,47 @@ impl RigolFamily {
 #[derive(Clone, Debug)]
 pub enum SiglentFamily {
     Unknown,
-    /// Siglent SDS3000X series oscilloscope
-    SDS3000X,
-    /// Siglent SSA3000X Plus series spectrum analyzer
-    SSA3000XPlus,
-    /// Siglent SDM4000A series multimeter
-    SDM4000A,
     /// Siglent SDG3000X series function generator
     SDG3000X,
+    /// Siglent SDM4000A series multimeter
+    SDM4000A,
+    /// Siglent SDS3000X series oscilloscope
+    SDS3000X,
+    /// Siglent SPD1000X series power supply
+    SPD1000X,
+    /// Siglent SPD3000 series power supply
+    SPD3000,
+    /// Siglent SPD4000X series power supply
+    SPD4000X,
+    /// Siglent SPS5000X series power supply
+    SPS5000X,
+    /// Siglent SPS6000X series power supply
+    SPS6000X,
+    /// Siglent SSA3000X (Plus) series spectrum analyzer
+    SSA3000X,
 }
 impl SiglentFamily {
     fn from_idn(idn: &[&str]) -> Result<Self> {
         let model = idn[1].to_lowercase();
 
-        if model.contains("sds3") {
-            Ok(Self::SDS3000X)
-        } else if model.contains("ssa3") {
-            /* TODO: Differentiate non-plus, if necessary */
-            Ok(Self::SSA3000XPlus)
+        if model.contains("sdg3") {
+            Ok(Self::SDG3000X)
         } else if model.contains("sdm4") {
             Ok(Self::SDM4000A)
-        } else if model.contains("sdg3") {
-            Ok(Self::SDG3000X)
+        } else if model.contains("sds3") {
+            Ok(Self::SDS3000X)
+        } else if model.contains("ssa3") {
+            Ok(Self::SSA3000X)
+        } else if model.contains("spd1") {
+            Ok(Self::SPD1000X)
+        } else if model.contains("spd3") {
+            Ok(Self::SPD3000)
+        } else if model.contains("spd4") {
+            Ok(Self::SPD4000X)
+        } else if model.contains("sps5") {
+            Ok(Self::SPS5000X)
+        } else if model.contains("sps6") {
+            Ok(Self::SPS6000X)
         } else {
             Ok(Self::Unknown)
         }

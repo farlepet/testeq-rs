@@ -6,21 +6,23 @@ pub mod psu;
 pub mod spectrum_analyzer;
 
 use async_trait::async_trait;
+
+use ac_source::AcSourceEquipment;
 use multimeter::MultimeterEquipment;
 use oscilloscope::OscilloscopeEquipment;
 use psu::PowerSupplyEquipment;
 use spectrum_analyzer::SpectrumAnalyzerEquipment;
 
 use crate::{
-    equipment::{ac_source::AcSourceEquipment, drivers::ac_source_keysight::KeysightAcSource},
     error::{Error, Result},
     model::{KeysightFamily, Manufacturer, RigolFamily, SiglentFamily},
     protocol::ScpiProtocol,
 };
 
 use self::drivers::{
-    multimeter_siglent::SiglentMultimeter, oscilloscope_siglent::SiglentOscilloscope,
-    psu_rigol::RigolPsu, sa_siglent::SiglentSpectrumAnalyzer,
+    ac_source_keysight::KeysightAcSource, multimeter_siglent::SiglentMultimeter,
+    oscilloscope_siglent::SiglentOscilloscope, psu_scpi::GenericScpiPsu,
+    sa_siglent::SiglentSpectrumAnalyzer,
 };
 
 pub enum Equipment {
@@ -42,26 +44,33 @@ pub async fn equipment_from_scpi(mut proto: Box<dyn ScpiProtocol>) -> Result<Equ
             }
         }
         Manufacturer::Rigol(family) => match family {
-            RigolFamily::DP800 | RigolFamily::DP2000 => {
-                return Ok(Equipment::PowerSupply(Box::new(RigolPsu::new(proto)?)));
+            RigolFamily::DP700 | RigolFamily::DP800 | RigolFamily::DP900 | RigolFamily::DP2000 => {
+                return Ok(Equipment::PowerSupply(Box::new(GenericScpiPsu::new(
+                    proto,
+                )?)));
             }
             _ => {}
         },
         Manufacturer::Siglent(family) => match family {
-            SiglentFamily::SDS3000X => {
-                return Ok(Equipment::Oscilloscope(Box::new(SiglentOscilloscope::new(
-                    proto,
-                )?)));
-            }
             SiglentFamily::SDM4000A => {
                 return Ok(Equipment::Multimeter(Box::new(SiglentMultimeter::new(
                     proto,
                 )?)));
             }
-            SiglentFamily::SSA3000XPlus => {
+            SiglentFamily::SDS3000X => {
+                return Ok(Equipment::Oscilloscope(Box::new(SiglentOscilloscope::new(
+                    proto,
+                )?)));
+            }
+            SiglentFamily::SSA3000X => {
                 return Ok(Equipment::SpectrumAnalyzer(Box::new(
                     SiglentSpectrumAnalyzer::new(proto)?,
                 )));
+            }
+            SiglentFamily::SPD1000X | SiglentFamily::SPD3000 | SiglentFamily::SPD4000X => {
+                return Ok(Equipment::PowerSupply(Box::new(GenericScpiPsu::new(
+                    proto,
+                )?)));
             }
             _ => {}
         },
