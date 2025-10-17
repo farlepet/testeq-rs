@@ -1,4 +1,4 @@
-use std::{env, net::ToSocketAddrs, process::exit, time::Duration};
+use std::{env, process::exit, time::Duration};
 
 use strum::IntoEnumIterator;
 use testeq_rs::{
@@ -6,14 +6,13 @@ use testeq_rs::{
     equipment::{
         Equipment,
         ac_source::AcSourceEquipment,
-        equipment_from_scpi,
+        equipment_from_uri,
         multimeter::{MultimeterEquipment, MultimeterMode},
         oscilloscope::OscilloscopeEquipment,
         psu::PowerSupplyEquipment,
         spectrum_analyzer::SpectrumAnalyzerEquipment,
     },
     error::Result,
-    protocol::{self, Protocol, ScpiTcpProtocol},
 };
 use tokio::time::sleep;
 
@@ -21,57 +20,18 @@ use tokio::time::sleep;
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args: Vec<String> = env::args().collect();
 
-    if args.len() != 3 {
-        println!("Usage: ... <protocol> <path>");
-        println!("  <protocol>:");
-        println!("    scpi_tcp: SCPI over raw TCP");
-        println!("    scpi_vxi11: SCPI over raw TCP, VXI11 port determination");
-        println!("  <path>");
-        println!("    Path to device, or network address (IP:PORT or HOSTNAME:PORT)");
+    if args.len() != 2 {
+        println!("Usage: ... <uri>");
+        println!("  <uri>:");
+        println!("    tcp://<host>:<port>: SCPI over raw TCP");
+        println!("    vxi11://<host>[:<port>]: SCPI over raw VXI11");
+        println!("    serial:<port>[?baud=<baud>]: SCPI over serial");
         exit(1);
     }
 
-    let proto = &args[1];
-    let path = &args[2];
+    let uri = &args[1];
 
-    let equip = match proto.as_ref() {
-        "scpi_tcp" => {
-            let Some(socket) = path.to_socket_addrs()?.next() else {
-                println!("Could not resolve '{path}'");
-                exit(1);
-            };
-            let mut scpi = ScpiTcpProtocol::new(socket)?;
-            scpi.connect().await?;
-            equipment_from_scpi(Box::new(scpi)).await?
-        }
-        "scpi_vxi11" => {
-            let path = if path.contains(':') {
-                path.clone()
-            } else {
-                format!("{}:{}", path, protocol::PORTMAP_PORT)
-            };
-            let Some(socket) = path.to_socket_addrs()?.next() else {
-                println!("Could not resolve '{path}'");
-                exit(1);
-            };
-            let mut client = protocol::ScpiVxiProtocol::new(socket);
-            client.connect().await?;
-            equipment_from_scpi(Box::new(client)).await?
-        }
-        "scpi_serial" => {
-            let (path, baud) = match path.split_once(':') {
-                Some((path, baud)) => (path, baud.parse()?),
-                None => (path.as_ref(), 9600),
-            };
-            let mut client = protocol::ScpiSerialProtocol::new(path, baud);
-            client.connect().await?;
-            equipment_from_scpi(Box::new(client)).await?
-        }
-        _ => {
-            println!("Protocol '{proto}' not supported");
-            exit(1);
-        }
-    };
+    let equip = equipment_from_uri(uri).await?;
 
     match equip {
         Equipment::AcSource(mut ac) => test_ac_source(ac.as_mut()).await?,

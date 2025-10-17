@@ -14,6 +14,8 @@ pub enum Error {
     NotSupported(String),
     /// Timed out during an operation
     Timeout(String),
+    /// Invalid argument passed to library
+    InvalidArgument(String),
 }
 impl std::error::Error for Error {}
 impl Display for Error {
@@ -26,6 +28,7 @@ impl Display for Error {
             Error::BadResponse(e) => write!(f, "Bad response: {e}"),
             Error::NotSupported(e) => write!(f, "Not supported: {e}"),
             Error::Timeout(e) => write!(f, "Timed out: {e}"),
+            Error::InvalidArgument(e) => write!(f, "Invalid argument: {e}"),
         }
     }
 }
