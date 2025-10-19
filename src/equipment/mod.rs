@@ -5,8 +5,6 @@ pub mod oscilloscope;
 pub mod psu;
 pub mod spectrum_analyzer;
 
-use std::net::ToSocketAddrs;
-
 use async_trait::async_trait;
 
 use ac_source::AcSourceEquipment;
@@ -18,7 +16,7 @@ use spectrum_analyzer::SpectrumAnalyzerEquipment;
 use crate::{
     error::{Error, Result},
     model::{KeysightFamily, Manufacturer, RigolFamily, SiglentFamily},
-    protocol::{self, Protocol, ScpiProtocol},
+    protocol::{ScpiProtocol, scpi_from_uri},
 };
 
 use self::drivers::{
@@ -83,64 +81,9 @@ pub async fn equipment_from_scpi(mut proto: Box<dyn ScpiProtocol>) -> Result<Equ
 }
 
 pub async fn equipment_from_uri(uri: impl AsRef<str>) -> Result<Equipment> {
-    /* TODO: Centralize URI parsing */
-
-    let uri = uri.as_ref();
-    if let Some(socket) = uri.strip_prefix("vxi11://") {
-        let socket = if socket.contains(':') {
-            socket.to_string()
-        } else {
-            format!("{}:{}", socket, protocol::PORTMAP_PORT)
-        };
-        let Some(socket) = socket.to_socket_addrs()?.next() else {
-            return Err(Error::Unspecified(format!("Could not resolve '{socket}'")));
-        };
-
-        let mut client = protocol::ScpiVxiProtocol::new(socket);
-        client.connect().await?;
-        equipment_from_scpi(Box::new(client)).await
-    } else if let Some(socket) = uri.strip_prefix("tcp://") {
-        let Some(socket) = socket.to_socket_addrs()?.next() else {
-            return Err(Error::Unspecified(format!("Could not resolve '{socket}'")));
-        };
-
-        let mut scpi = protocol::ScpiTcpProtocol::new(socket)?;
-        scpi.connect().await?;
-        equipment_from_scpi(Box::new(scpi)).await
-    } else if let Some(path) = uri.strip_prefix("serial:") {
-        let (path, args) = match path.split_once('?') {
-            Some((path, args)) => (path, args.split('&').collect()),
-            None => (path, vec![]),
-        };
-        let mut baud = 9600;
-
-        for arg in args {
-            let Some((key, value)) = arg.split_once('=') else {
-                return Err(Error::InvalidArgument(format!(
-                    "Improperly formatted URI argument '{arg}'"
-                )));
-            };
-
-            match key {
-                "baud" => {
-                    baud = value.parse().map_err(|_| {
-                        Error::InvalidArgument(format!("Invalid value for baud rate: {value}"))
-                    })?
-                }
-                _ => {
-                    return Err(Error::InvalidArgument(format!(
-                        "Unsupported argument '{key}' in URI"
-                    )));
-                }
-            }
-        }
-
-        let mut client = protocol::ScpiSerialProtocol::new(path, baud);
-        client.connect().await?;
-        equipment_from_scpi(Box::new(client)).await
-    } else {
-        Err(Error::InvalidArgument(format!("Unknown scheme in '{uri}'")))
-    }
+    /* TODO: Support more than SCPI-based transports */
+    let proto = scpi_from_uri(uri).await?;
+    equipment_from_scpi(proto).await
 }
 
 #[async_trait]

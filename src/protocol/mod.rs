@@ -5,7 +5,7 @@ mod scpi_serial;
 mod scpi_tcp;
 mod vxi11;
 
-pub use scpi::ScpiProtocol;
+pub use scpi::{ScpiProtocol, scpi_from_uri};
 pub use scpi_serial::ScpiSerialProtocol;
 pub use scpi_tcp::ScpiTcpProtocol;
 pub use vxi11::ScpiVxiProtocol;

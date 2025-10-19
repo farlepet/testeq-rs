@@ -1,10 +1,11 @@
-use std::time::Duration;
+use std::{net::ToSocketAddrs, time::Duration};
 
 use async_trait::async_trait;
 
 use crate::{
     error::{Error, Result},
     model::ModelInfo,
+    protocol,
 };
 
 use super::Protocol;
@@ -68,5 +69,69 @@ impl dyn ScpiProtocol {
         let idn = self.identify().await?;
 
         ModelInfo::from_idn(&idn)
+    }
+}
+
+pub async fn scpi_from_uri(uri: impl AsRef<str>) -> Result<Box<dyn ScpiProtocol>> {
+    /* TODO: Centralize URI parsing */
+
+    let uri = uri.as_ref();
+    if let Some(socket) = uri.strip_prefix("vxi11://") {
+        let socket = if socket.contains(':') {
+            socket.to_string()
+        } else {
+            format!("{}:{}", socket, protocol::PORTMAP_PORT)
+        };
+        let Some(socket) = socket.to_socket_addrs()?.next() else {
+            return Err(Error::Unspecified(format!("Could not resolve '{socket}'")));
+        };
+
+        let mut client = protocol::ScpiVxiProtocol::new(socket);
+        client.connect().await?;
+
+        Ok(Box::new(client))
+    } else if let Some(socket) = uri.strip_prefix("tcp://") {
+        let Some(socket) = socket.to_socket_addrs()?.next() else {
+            return Err(Error::Unspecified(format!("Could not resolve '{socket}'")));
+        };
+
+        let mut scpi = protocol::ScpiTcpProtocol::new(socket)?;
+        scpi.connect().await?;
+
+        Ok(Box::new(scpi))
+    } else if let Some(path) = uri.strip_prefix("serial:") {
+        let (path, args) = match path.split_once('?') {
+            Some((path, args)) => (path, args.split('&').collect()),
+            None => (path, vec![]),
+        };
+        let mut baud = 9600;
+
+        for arg in args {
+            let Some((key, value)) = arg.split_once('=') else {
+                return Err(Error::InvalidArgument(format!(
+                    "Improperly formatted URI argument '{arg}'"
+                )));
+            };
+
+            match key {
+                "baud" => {
+                    baud = value.parse().map_err(|_| {
+                        Error::InvalidArgument(format!("Invalid value for baud rate: {value}"))
+                    })?
+                }
+                _ => {
+                    return Err(Error::InvalidArgument(format!(
+                        "Unsupported argument '{key}' in URI"
+                    )));
+                }
+            }
+        }
+
+        let mut client = protocol::ScpiSerialProtocol::new(path, baud);
+        client.connect().await?;
+
+        Ok(Box::new(client))
+    } else {
+        Err(Error::InvalidArgument(format!("Unknown scheme in '{uri}'")))
     }
 }
