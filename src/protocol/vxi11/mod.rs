@@ -29,8 +29,10 @@ const VXI_INTERRUPT_VERS: u32 = 1;
 
 /// Client ID to use, seems arbitrary?
 const CLIENT_ID: i32 = 1;
+/// Default IO timeout
+const IO_TIMEOUT: u32 = 10000;
 /// Device lock timeout
-const LOCK_TIMEOUT: u32 = 10000;
+const LOCK_TIMEOUT: u32 = 0;
 /// Max amount to read in a single transaction
 const READ_SIZE: u32 = 65536;
 
@@ -84,7 +86,7 @@ impl ScpiProtocol for ScpiVxiProtocol {
             return Err(Error::Unspecified("Not connected".into()));
         };
 
-        link.recv().await
+        link.recv(None, None, None).await
     }
 
     async fn int_query(&mut self, data: &[u8]) -> Result<Vec<u8>> {
@@ -94,22 +96,33 @@ impl ScpiProtocol for ScpiVxiProtocol {
 
     async fn recv_raw(
         &mut self,
-        _length: Option<usize>,
-        _timeout: Option<Duration>,
+        length: Option<usize>,
+        timeout: Option<Duration>,
     ) -> Result<Vec<u8>> {
-        Err(Error::Unimplemented("TODO".into()))
+        let Some(link) = &mut self.link else {
+            return Err(Error::Unspecified("Not connected".into()));
+        };
+
+        link.recv(timeout, length.map(|l| l as _), None).await
     }
 
-    async fn recv_until(&mut self, _byte: u8, _timeout: Duration) -> Result<Vec<u8>> {
-        Err(Error::Unimplemented("TODO".into()))
+    async fn recv_until(&mut self, byte: u8, timeout: Duration) -> Result<Vec<u8>> {
+        let Some(link) = &mut self.link else {
+            return Err(Error::Unspecified("Not connected".into()));
+        };
+
+        link.recv(Some(timeout), None, Some(byte)).await
     }
 
-    async fn flush_rx(&mut self, _timeout: Duration) -> Result<()> {
-        self.int_recv().await?;
+    async fn flush_rx(&mut self, timeout: Duration) -> Result<()> {
+        let Some(link) = &mut self.link else {
+            return Err(Error::Unspecified("Not connected".into()));
+        };
 
-        /* TODO: Use timeout */
-
-        Ok(())
+        match link.recv(Some(timeout), None, None).await {
+            Ok(_) | Err(Error::Timeout(_)) => Ok(()),
+            Err(e) => Err(e),
+        }
     }
 }
 
@@ -140,7 +153,7 @@ impl VxiClientLink {
 
         let req = RpcRequestDeviceWrite {
             lid: self.link_id,
-            io_timeout: LOCK_TIMEOUT,
+            io_timeout: IO_TIMEOUT,
             lock_timeout: LOCK_TIMEOUT,
             flags: rpc::RpcOperationFlags {
                 wait_lock: false,
@@ -188,18 +201,26 @@ impl VxiClientLink {
     /// Perform single read transaction, returning both the data that was
     /// received and whether this is the last of the data (END condition was
     /// set)
-    async fn recv_packet(&mut self) -> Result<(Vec<u8>, bool)> {
+    async fn recv_packet(
+        &mut self,
+        timeout: Option<Duration>,
+        size: Option<u32>,
+        termchr: Option<u8>,
+    ) -> Result<(Vec<u8>, bool)> {
         let req = RpcRequestDeviceRead {
             lid: self.link_id,
-            request_size: READ_SIZE,
-            io_timeout: LOCK_TIMEOUT,
+            request_size: size.unwrap_or(READ_SIZE),
+            /* NOTE: Siglent instruments do not appear to respect these fields -
+             * most will always assume 10 seconds, and others will return nearly
+             * immediately. */
+            io_timeout: timeout.map(|t| t.as_millis() as _).unwrap_or(IO_TIMEOUT),
             lock_timeout: LOCK_TIMEOUT,
             flags: rpc::RpcOperationFlags {
                 wait_lock: false,
                 end: false,
-                termchr_set: false,
+                termchr_set: termchr.is_some(),
             },
-            termchr: 0,
+            termchr: termchr.unwrap_or(0),
         };
 
         let mut client = self.onc_client.lock().await;
@@ -210,23 +231,38 @@ impl VxiClientLink {
         let mut result = resp.get_success_result()?.to_vec();
         let result = rpc::RpcResponseDeviceRead::unpack(&mut result)?;
 
-        if result.error != rpc::RpcDeviceErrorCode::NoError {
-            return Err(Error::Unspecified(format!(
-                "Failed to read from device: {:?}",
-                result.error
-            )));
+        match result.error {
+            rpc::RpcDeviceErrorCode::NoError => {}
+            rpc::RpcDeviceErrorCode::IoTimeout => {
+                return Err(Error::Timeout("Read timeout".into()));
+            }
+            e => {
+                return Err(Error::Unspecified(format!(
+                    "Failed to read from device: {e:?}"
+                )));
+            }
         }
 
-        Ok((result.data, result.reason.end))
+        let is_end = result.reason.end
+            || (size.is_some() && result.reason.reqcnt)
+            || (termchr.is_some() && result.reason.reqcnt);
+
+        Ok((result.data, is_end))
     }
 
     /// Perform device read, will continue performing read calls until device
     /// indicates that we have reached the end.
-    async fn recv(&mut self) -> Result<Vec<u8>> {
+    async fn recv(
+        &mut self,
+        timeout: Option<Duration>,
+        size: Option<u32>,
+        termchr: Option<u8>,
+    ) -> Result<Vec<u8>> {
         let mut result = vec![];
 
         loop {
-            let (mut res, is_last) = self.recv_packet().await?;
+            /* TODO: Decrease timeout by run time */
+            let (mut res, is_last) = self.recv_packet(timeout, size, termchr).await?;
             result.append(&mut res);
             if is_last {
                 break;

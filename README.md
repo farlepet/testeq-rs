@@ -7,9 +7,10 @@ Currently under development, and is not yet in a very usable or stable state.
 ## Supported transports
 
 * SCPI
-  * SCPI over serial port
-  * SCPI over raw TCP
   * SCPI over VXI-11 (TCP)
+    * Recommended
+  * SCPI over raw TCP
+  * SCPI over serial port
 
 ## Supported test equipment
 
@@ -25,6 +26,7 @@ Currently under development, and is not yet in a very usable or stable state.
   * Siglent SDS3000X HD
     * Currently only minimal support
     * Only SDS3104X HD supported currently
+    * Only works fully over VXI-11 transport
 * Spectrum Analyzers
   * Siglent SSA3000X Plus
     * Currently only minimal support

@@ -277,15 +277,12 @@ impl SiglentOscilloscopeChannel {
     }
 
     async fn read_header(&self, proto: &mut dyn ScpiProtocol) -> Result<String> {
-        proto.recv_until(b'#', Duration::from_secs(3)).await?;
-        let length = proto
-            .recv_raw(Some(1), Some(Duration::from_secs(1)))
+        let res = proto
+            .recv_raw(Some(2), Some(Duration::from_secs(3)))
             .await?;
+        let length = (res[1] - b'0').into();
         let value = proto
-            .recv_raw(
-                Some((length[0] - b'0').into()),
-                Some(Duration::from_secs(1)),
-            )
+            .recv_raw(Some(length), Some(Duration::from_secs(1)))
             .await?;
         Ok(String::from_utf8_lossy(&value).to_string())
     }
