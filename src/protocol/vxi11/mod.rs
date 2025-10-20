@@ -3,6 +3,7 @@
 use std::{net::SocketAddr, sync::Arc, time::Duration};
 
 use async_trait::async_trait;
+use log::debug;
 use tokio::sync::Mutex;
 
 use crate::{
@@ -189,6 +190,13 @@ impl VxiClientLink {
     /// Write data via the LXI device link, splitting it up into multiple
     /// writes if the size exceeds the maximum reported chunk size
     async fn write(&mut self, data: &[u8]) -> Result<()> {
+        debug!(
+            "write(): {}",
+            String::from_utf8_lossy(data)
+                .replace('\n', "␤")
+                .replace('\r', "␊")
+        );
+
         let n_chunks = data.len().div_ceil(self.max_recv_size as usize);
         for (index, chunk) in data.chunks(self.max_recv_size as usize).enumerate() {
             let last = index == (n_chunks - 1);
@@ -260,6 +268,8 @@ impl VxiClientLink {
     ) -> Result<Vec<u8>> {
         let mut result = vec![];
 
+        debug!("recv({timeout:?}, {size:?}, {termchr:?})");
+
         loop {
             /* TODO: Decrease timeout by run time */
             let (mut res, is_last) = self.recv_packet(timeout, size, termchr).await?;
@@ -268,6 +278,13 @@ impl VxiClientLink {
                 break;
             }
         }
+
+        debug!(
+            "recv: {}",
+            String::from_utf8_lossy(&result)
+                .replace('\n', "␤")
+                .replace('\r', "␊")
+        );
 
         Ok(result)
     }

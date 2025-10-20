@@ -5,6 +5,8 @@ use tokio::time::Instant;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    env_logger::init();
+
     let args: Vec<String> = env::args().collect();
 
     if args.len() != 2 {

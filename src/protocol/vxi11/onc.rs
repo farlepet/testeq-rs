@@ -2,6 +2,7 @@
 
 use std::{mem, net::SocketAddr, sync::Arc};
 
+use log::warn;
 use tokio::{
     io::{AsyncReadExt, AsyncWriteExt},
     net::{TcpSocket, TcpStream},
@@ -87,7 +88,7 @@ impl OncClient {
                 if unpacked.xid == self.last_xid {
                     return Ok(unpacked);
                 } else {
-                    println!("Received non-matching xid: {}", unpacked.xid);
+                    warn!("Received non-matching xid: {}", unpacked.xid);
                 }
             }
         }

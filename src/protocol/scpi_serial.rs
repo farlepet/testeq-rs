@@ -1,6 +1,7 @@
 use std::time::Duration;
 
 use async_trait::async_trait;
+use log::debug;
 use tokio::{
     io::{AsyncBufReadExt, AsyncReadExt, AsyncWriteExt, BufReader},
     time::Instant,
@@ -58,6 +59,13 @@ impl ScpiProtocol for ScpiSerialProtocol {
             return Err(Error::Unspecified("Not connected".into()));
         };
 
+        debug!(
+            "int_send(): {}",
+            String::from_utf8_lossy(data)
+                .replace('\n', "␤")
+                .replace('\r', "␊")
+        );
+
         serial
             .write_all(data)
             .await
@@ -79,6 +87,13 @@ impl ScpiProtocol for ScpiSerialProtocol {
             .await
             .map_err(|e| Error::Unhandled(e.into()))?;
 
+        debug!(
+            "int_recv: {}",
+            String::from_utf8_lossy(&resp)
+                .replace('\n', "␤")
+                .replace('\r', "␊")
+        );
+
         Ok(resp)
     }
 
@@ -95,6 +110,8 @@ impl ScpiProtocol for ScpiSerialProtocol {
         let Some(serial) = &mut self.serial else {
             return Err(Error::Unspecified("Not connected".into()));
         };
+
+        debug!("recv_raw({length:?}, {timeout:?})");
 
         if let Some(length) = length {
             let mut resp = vec![0; length];
@@ -114,6 +131,13 @@ impl ScpiProtocol for ScpiSerialProtocol {
                 serial.read_exact(&mut resp).await?;
             }
 
+            debug!(
+                "recv_raw: {}",
+                String::from_utf8_lossy(&resp)
+                    .replace('\n', "␤")
+                    .replace('\r', "␊")
+            );
+
             Ok(resp)
         } else {
             Err(Error::Unimplemented("TODO".into()))
@@ -124,6 +148,8 @@ impl ScpiProtocol for ScpiSerialProtocol {
         let Some(serial) = &mut self.serial else {
             return Err(Error::Unspecified("Not connected".into()));
         };
+
+        debug!("recv_until({byte}, {timeout:?})");
 
         let mut data = vec![];
         let end = Instant::now() + timeout;
@@ -151,6 +177,12 @@ impl ScpiProtocol for ScpiSerialProtocol {
                     let res = res?;
                     data.push(res);
                     if res == byte {
+                        debug!(
+                            "recv_until: {}",
+                            String::from_utf8_lossy(&data)
+                                .replace('\n', "␤")
+                                .replace('\r', "␊")
+                        );
                         return Ok(data);
                     }
                 }
@@ -162,6 +194,8 @@ impl ScpiProtocol for ScpiSerialProtocol {
         let Some(serial) = &mut self.serial else {
             return Err(Error::Unspecified("Not connected".into()));
         };
+
+        debug!("flush_rx({timeout:?})");
 
         let end = Instant::now() + timeout;
         loop {
