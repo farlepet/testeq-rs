@@ -6,7 +6,10 @@ use crate::{
     data::Reading,
     equipment::{
         BaseEquipment,
-        multimeter::{MultimeterChannel, MultimeterDetails, MultimeterEquipment, MultimeterMode},
+        multimeter::{
+            MultimeterChannel, MultimeterDetails, MultimeterEquipment, MultimeterMode,
+            MultimeterTrigSource,
+        },
     },
     error::{Error, Result},
     model::ModelInfo,
@@ -62,6 +65,41 @@ impl MultimeterEquipment for SiglentMultimeter {
             .map(|ch| ch as _)
             .collect())
     }
+
+    async fn trigger_arm(&mut self) -> Result<()> {
+        self.proto.lock().await.send("INIT").await
+    }
+
+    async fn trigger_now(&mut self) -> Result<()> {
+        self.proto.lock().await.send("*TRG").await
+    }
+
+    async fn get_trigger_source(&mut self) -> Result<MultimeterTrigSource> {
+        let source = self.proto.lock().await.query_str("TRIG:SOUR?").await?;
+
+        match source.as_str() {
+            "IMM" => Ok(MultimeterTrigSource::Immediate),
+            "BUS" => Ok(MultimeterTrigSource::Bus),
+            "EXT" => Ok(MultimeterTrigSource::External(0)),
+            src => Err(Error::BadResponse(format!(
+                "Unknown trigger source response '{src}'"
+            ))),
+        }
+    }
+
+    async fn set_trigger_source(&mut self, source: MultimeterTrigSource) -> Result<()> {
+        let src = match source {
+            MultimeterTrigSource::Immediate => "IMM",
+            MultimeterTrigSource::Bus => "BUS",
+            MultimeterTrigSource::External(_) => "EXT",
+        };
+
+        self.proto
+            .lock()
+            .await
+            .send(format!("TRIG:SOUR {src}"))
+            .await
+    }
 }
 
 struct SiglentMultimeterChannel {
@@ -94,7 +132,9 @@ impl SiglentMultimeterChannel {
     }
 
     async fn get_mode_or_cache(&self) -> Result<MultimeterMode> {
-        match *self.mode.read().await {
+        let mode = *self.mode.read().await;
+
+        match mode {
             Some(mode) => Ok(mode),
             None => {
                 let mode = self.get_mode().await?;
@@ -220,7 +260,7 @@ impl MultimeterChannel for SiglentMultimeterChannel {
     async fn get_reading(&self) -> Result<Reading> {
         let mode = self.get_mode_or_cache().await?;
 
-        let resp = self.query_str("READ?").await?;
+        let resp = self.query_str("FETC?").await?;
         let resp_vec: Vec<_> = resp.split(',').collect();
 
         let Some(reading) = resp_vec.first() else {
