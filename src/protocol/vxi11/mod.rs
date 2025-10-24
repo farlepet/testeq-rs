@@ -3,16 +3,15 @@
 use std::{net::SocketAddr, sync::Arc, time::Duration};
 
 use async_trait::async_trait;
-use log::debug;
+use log::{debug, error};
 use tokio::sync::Mutex;
 
 use crate::{
     error::{Error, Result},
     model::ModelInfo,
-    protocol::vxi11::{onc::OncClient, rpc::RpcRequestDeviceRead},
 };
 
-use self::{rpc::RpcRequestDeviceWrite, xdr::XdrPack};
+use self::{onc::OncClient, xdr::XdrPack};
 
 use super::{Protocol, ScpiProtocol};
 
@@ -152,7 +151,7 @@ impl VxiClientLink {
             )));
         }
 
-        let req = RpcRequestDeviceWrite {
+        let req = rpc::RpcRequestDeviceWrite {
             lid: self.link_id,
             io_timeout: IO_TIMEOUT,
             lock_timeout: LOCK_TIMEOUT,
@@ -215,7 +214,7 @@ impl VxiClientLink {
         size: Option<u32>,
         termchr: Option<u8>,
     ) -> Result<(Vec<u8>, bool)> {
-        let req = RpcRequestDeviceRead {
+        let req = rpc::RpcRequestDeviceRead {
             lid: self.link_id,
             request_size: size.unwrap_or(READ_SIZE),
             /* NOTE: Siglent instruments do not appear to respect these fields -
@@ -287,6 +286,40 @@ impl VxiClientLink {
         );
 
         Ok(result)
+    }
+
+    /// Destroy this link from the VXI-11 connection. Must only be called from
+    /// Drop.
+    async fn destroy(&mut self) -> Result<()> {
+        let mut client = self.onc_client.lock().await;
+
+        let req = gen_call_packet(
+            &client,
+            VxiPortType::Core,
+            rpc::RpcRequest::DestroyLink,
+            self.link_id,
+        );
+        let resp = client.request(req).await?;
+
+        let mut result = resp.get_success_result()?.to_vec();
+        let error = rpc::RpcDeviceErrorCode::unpack(&mut result)?;
+
+        if error != rpc::RpcDeviceErrorCode::NoError {
+            return Err(Error::Unspecified(format!(
+                "Device returned error on destroy link: {error:?}"
+            )));
+        }
+
+        Ok(())
+    }
+}
+impl Drop for VxiClientLink {
+    fn drop(&mut self) {
+        futures::executor::block_on(async {
+            if let Err(e) = self.destroy().await {
+                error!("Failed to destroy VXI-11 link: {e}")
+            }
+        });
     }
 }
 

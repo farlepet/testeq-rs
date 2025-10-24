@@ -46,7 +46,7 @@ pub enum RpcDeviceErrorCode {
     Unknown(u32),
 }
 impl RpcDeviceErrorCode {
-    fn unpack(src: &mut Vec<u8>) -> Result<Self> {
+    pub fn unpack(src: &mut Vec<u8>) -> Result<Self> {
         Ok(match xdr::unpack_u32(src)? {
             0 => Self::NoError,
             1 => Self::SyntaxError,
