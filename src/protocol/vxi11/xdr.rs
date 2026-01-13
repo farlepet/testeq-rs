@@ -32,7 +32,7 @@ impl XdrPack for Vec<u8> {
         (self.len() as u32).pack_xdr(out);
         out.extend(self);
         /* Must be padded to multiple of 32-byte words */
-        if (len % 4) != 0 {
+        if !len.is_multiple_of(4) {
             for _ in 0..(4 - (len % 4)) {
                 out.push(0);
             }
@@ -80,7 +80,7 @@ pub fn unpack_u16(src: &mut Vec<u8>) -> Result<u16> {
 
 pub fn unpack_opaque(src: &mut Vec<u8>) -> Result<Vec<u8>> {
     let length = unpack_u32(src)? as usize;
-    let padding = if (length % 4) != 0 {
+    let padding = if !length.is_multiple_of(4) {
         4 - (length % 4)
     } else {
         0
