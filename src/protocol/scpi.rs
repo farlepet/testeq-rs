@@ -131,6 +131,47 @@ pub async fn scpi_from_uri(uri: impl AsRef<str>) -> Result<Box<dyn ScpiProtocol>
         client.connect().await?;
 
         Ok(Box::new(client))
+    } else if let Some(path) = uri.strip_prefix("usbtmc:") {
+        /* TODO: Support bus+device addressing */
+        let (path, args) = match path.split_once('?') {
+            Some((path, args)) => (path, args.split('&').collect()),
+            None => (path, vec![]),
+        };
+
+        let Some((vid, pid)) = path.split_once(':') else {
+            return Err(Error::InvalidArgument(
+                "Improperly formatted URI, must be 'usbtmc:<VID>:<PID>'".into(),
+            ));
+        };
+        let mut serial = None;
+
+        for arg in args {
+            let Some((key, value)) = arg.split_once('=') else {
+                return Err(Error::InvalidArgument(format!(
+                    "Improperly formatted URI argument '{arg}'"
+                )));
+            };
+
+            match key {
+                "serial" => serial = Some(value.to_string()),
+                _ => {
+                    return Err(Error::InvalidArgument(format!(
+                        "Unsupported argument '{key}' in URI"
+                    )));
+                }
+            }
+        }
+
+        let vid = u16::from_str_radix(&vid, 16)
+            .map_err(|e| Error::InvalidArgument(format!("Bad VID value: {e}")))?;
+        let pid = u16::from_str_radix(&pid, 16)
+            .map_err(|e| Error::InvalidArgument(format!("Bad PID value: {e}")))?;
+
+        let addr = protocol::UsbAddress::VidPid { vid, pid, serial };
+        let mut scpi = protocol::ScpiUsbtmcProtocol::new(addr);
+        scpi.connect().await?;
+
+        Ok(Box::new(scpi))
     } else {
         Err(Error::InvalidArgument(format!("Unknown scheme in '{uri}'")))
     }

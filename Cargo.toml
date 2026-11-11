@@ -9,6 +9,7 @@ edition = "2024"
 async-trait = "0.1"
 log = { version = "0.4", features = [ "kv" ] }
 futures = "0.3.31"
+rusb = "0.9"
 strum = "0.28"
 strum_macros = "0.28"
 tokio = { version = "1.49", features = [ "net", "io-util", "sync", "macros", "rt-multi-thread", "time" ] }

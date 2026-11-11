@@ -11,6 +11,7 @@ Currently under development, and is not yet in a very usable or stable state.
     * Recommended
   * SCPI over raw TCP
   * SCPI over serial port
+  * SCPI over USBTMC
 
 ## Supported test equipment
 

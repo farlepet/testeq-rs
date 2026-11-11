@@ -3,11 +3,14 @@ use async_trait::async_trait;
 mod scpi;
 mod scpi_serial;
 mod scpi_tcp;
+mod usbtmc;
 mod vxi11;
 
 pub use scpi::{ScpiProtocol, scpi_from_uri};
 pub use scpi_serial::ScpiSerialProtocol;
 pub use scpi_tcp::ScpiTcpProtocol;
+pub use usbtmc::ScpiUsbtmcProtocol;
+pub use usbtmc::UsbAddress;
 pub use vxi11::ScpiVxiProtocol;
 pub use vxi11::portmap::PORTMAP_PORT;
 
